@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>파이보 토론 지원 시스템</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #f0f2f5;
+            --bg-secondary: #ffffff;
+            --bg-card: #ffffff;
+            --bg-card-alt: #f8f9fb;
+            --bg-hover: #f4f6f8;
+            --border: #e2e5ea;
+            --border-light: #eef0f3;
+            --text-primary: #1e2329;
+            --text-secondary: #5f6872;
+            --text-muted: #9aa1ab;
+            --accent-blue: #3b82f6;
+            --accent-cyan: #06b6d4;
+            --accent-purple: #8b5cf6;
+            --accent-orange: #f97316;
+            --speaker-a: #3b82f6;
+            --speaker-b: #10b981;
+            --speaker-c: #8b5cf6;
+            --speaker-d: #f97316;
+            --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+            --shadow-md: 0 4px 12px rgba(0,0,0,0.06);
+            --shadow-lg: 0 8px 24px rgba(0,0,0,0.08);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        /* 헤더 */
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px 32px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-text {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-primary);
+            letter-spacing: -0.3px;
+        }
+
+        .status-bar {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: var(--text-muted);
+            padding: 6px 12px;
+            background: var(--bg-card-alt);
+            border-radius: 6px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #ef4444;
+        }
+
+        .status-dot.connected {
+            background: #10b981;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* 메인 컨테이너 */
+        .main-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr auto;
+            gap: 0;
+            height: calc(100vh - 77px);
+        }
+
+        /* 패널 공통 */
+        .panel {
+            background: var(--bg-card-alt);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .panel-left {
+            border-right: 1px solid var(--border);
+        }
+
+        .panel-header {
+            padding: 18px 24px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--bg-secondary);
+        }
+
+        .panel-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text-primary);
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .panel-title::before {
+            content: '';
+            width: 3px;
+            height: 14px;
+            background: var(--accent-blue);
+            border-radius: 2px;
+        }
+
+        .panel-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background: var(--bg-card-alt);
+        }
+
+        .panel-content::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .panel-content::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .panel-content::-webkit-scrollbar-thumb {
+            background: #d1d5db;
+            border-radius: 3px;
+        }
+
+        .panel-content::-webkit-scrollbar-thumb:hover {
+            background: #b8bfc7;
+        }
+
+        /* 빈 상태 */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: var(--text-muted);
+            text-align: center;
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        .empty-state-text {
+            font-size: 14px;
+        }
+
+        /* 대화 기록 */
+        .chat-message {
+            display: flex;
+            gap: 14px;
+            padding: 16px 18px;
+            margin-bottom: 10px;
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            border: 1px solid var(--border-light);
+            border-left: 3px solid transparent;
+            transition: all 0.2s ease;
+            box-shadow: var(--shadow-sm);
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .chat-message:hover {
+            box-shadow: var(--shadow-md);
+            transform: translateY(-1px);
+        }
+
+        .chat-message.speaker-a { border-left-color: var(--speaker-a); }
+        .chat-message.speaker-b { border-left-color: var(--speaker-b); }
+        .chat-message.speaker-c { border-left-color: var(--speaker-c); }
+        .chat-message.speaker-d { border-left-color: var(--speaker-d); }
+
+        .chat-time {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: var(--text-muted);
+            min-width: 42px;
+            padding-top: 2px;
+        }
+
+        .chat-content {
+            flex: 1;
+        }
+
+        .chat-speaker {
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        .chat-speaker.speaker-a { color: var(--speaker-a); }
+        .chat-speaker.speaker-b { color: var(--speaker-b); }
+        .chat-speaker.speaker-c { color: var(--speaker-c); }
+        .chat-speaker.speaker-d { color: var(--speaker-d); }
+
+        .chat-text {
+            font-size: 14px;
+            line-height: 1.65;
+            color: var(--text-primary);
+        }
+
+        /* 화자별 요약 */
+        .summary-section {
+            margin-bottom: 12px;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-light);
+        }
+
+        .summary-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 18px;
+            background: var(--bg-secondary);
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .summary-header:hover {
+            background: var(--bg-hover);
+        }
+
+        .summary-name {
+            font-size: 14px;
+            font-weight: 600;
+            flex: 1;
+            color: var(--text-primary);
+        }
+
+        .summary-toggle {
+            font-size: 12px;
+            color: var(--text-muted);
+            transition: transform 0.3s;
+        }
+
+        .summary-section.open .summary-toggle {
+            transform: rotate(180deg);
+        }
+
+        .summary-body {
+            background: var(--bg-card-alt);
+            border-top: 1px solid var(--border-light);
+            padding: 16px 18px;
+            display: none;
+        }
+
+        .summary-section.open .summary-body {
+            display: block;
+        }
+
+        .summary-item {
+            display: flex;
+            flex-direction: column;
+            padding: 12px 14px;
+            margin-bottom: 8px;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            border: 1px solid var(--border-light);
+        }
+
+        .summary-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .summary-text {
+            font-size: 13px;
+            line-height: 1.6;
+            color: var(--text-primary);
+        }
+
+        .summary-label {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 6px;
+            font-weight: 500;
+        }
+
+        /* AI 중재 패널 */
+        .ai-panel {
+            grid-column: 1 / -1;
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border);
+            padding: 20px 32px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .ai-panel::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: #3b82f6;
+        }
+
+        .ai-content {
+            display: flex;
+            align-items: flex-start;
+            gap: 16px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .ai-body {
+            flex: 1;
+        }
+
+        .ai-label {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--accent-blue);
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin-bottom: 8px;
+        }
+
+        .ai-message {
+            font-size: 14px;
+            line-height: 1.7;
+            color: var(--text-primary);
+        }
+
+        .ai-message.empty {
+            color: var(--text-muted);
+            font-style: italic;
+        }
+
+        /* 반응형 */
+        @media (max-width: 1024px) {
+            .main-container {
+                grid-template-columns: 1fr;
+                grid-template-rows: 1fr 1fr auto;
+            }
+
+            .panel-left {
+                border-right: none;
+                border-bottom: 1px solid var(--border);
+            }
+        }
+
+        @media (max-width: 640px) {
+            .header {
+                padding: 16px 20px;
+            }
+
+            .panel-content {
+                padding: 16px;
+            }
+
+            .ai-panel {
+                padding: 16px 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 헤더 -->
+    <header class="header">
+        <div class="logo">
+            <span class="logo-text">PIBO Debate</span>
+        </div>
+        <div class="status-bar">
+            <div class="connection-status">
+                <span class="status-dot" id="statusDot"></span>
+                <span id="statusText">연결 중...</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- 메인 컨테이너 -->
+    <main class="main-container">
+        <!-- 왼쪽: 실시간 대화 기록 -->
+        <section class="panel panel-left">
+            <div class="panel-header">
+                <h2 class="panel-title">실시간 대화 기록</h2>
+            </div>
+            <div class="panel-content" id="chatLog">
+                <div class="empty-state" id="chatEmptyState">
+                    <p class="empty-state-text">대화가 시작되면 여기에 표시됩니다</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- 오른쪽: 화자별 논지 요약 -->
+        <section class="panel panel-right">
+            <div class="panel-header">
+                <h2 class="panel-title">화자별 논지 요약</h2>
+            </div>
+            <div class="panel-content" id="summaryPanel">
+                <div class="empty-state" id="summaryEmptyState">
+                    <p class="empty-state-text">대화가 진행되면 요약이 생성됩니다</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- 파이보 중재 패널 -->
+        <div class="ai-panel">
+            <div class="ai-content">
+                <div class="ai-body">
+                    <div class="ai-label">파이보 중재</div>
+                    <p class="ai-message empty" id="mediationMessage">
+                        토론이 진행되면 파이보가 중재 메시지를 제공합니다.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // ===== 설정 =====
+        const WS_URL = `ws://localhost:9090`;
+        
+        // ===== 상태 =====
+        let ws = null;
+        let reconnectAttempts = 0;
+        const MAX_RECONNECT_ATTEMPTS = 10;
+        const speakerColors = {
+            '화자 A': 'a',
+            '화자 B': 'b', 
+            '화자 C': 'c',
+            '화자 D': 'd'
+        };
+        
+        // ===== DOM 요소 =====
+        const chatLog = document.getElementById('chatLog');
+        const chatEmptyState = document.getElementById('chatEmptyState');
+        const summaryPanel = document.getElementById('summaryPanel');
+        const summaryEmptyState = document.getElementById('summaryEmptyState');
+        const mediationMessage = document.getElementById('mediationMessage');
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+
+        // ===== WebSocket 연결 =====
+        function connect() {
+            ws = new WebSocket(WS_URL);
+            
+            ws.onopen = () => {
+                console.log('서버 연결됨');
+                reconnectAttempts = 0;
+                updateConnectionStatus(true);
+            };
+            
+            ws.onclose = () => {
+                console.log('서버 연결 끊김');
+                updateConnectionStatus(false);
+                
+                // 재연결 시도
+                if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+                    reconnectAttempts++;
+                    console.log(`재연결 시도 ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS}`);
+                    setTimeout(connect, 2000);
+                }
+            };
+            
+            ws.onerror = (error) => {
+                console.error('WebSocket 오류:', error);
+            };
+            
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    handleMessage(data);
+                } catch (e) {
+                    console.error('메시지 파싱 오류:', e);
+                }
+            };
+        }
+
+        // ===== 연결 상태 업데이트 =====
+        function updateConnectionStatus(connected) {
+            if (connected) {
+                statusDot.classList.add('connected');
+                statusText.textContent = '연결됨';
+            } else {
+                statusDot.classList.remove('connected');
+                statusText.textContent = '연결 끊김';
+            }
+        }
+
+        // ===== 메시지 처리 =====
+        function handleMessage(data) {
+            switch (data.type) {
+                case 'init':
+                    // 초기 데이터 로드
+                    if (data.conversation && data.conversation.length > 0) {
+                        data.conversation.forEach(msg => addMessage(msg));
+                    }
+                    if (data.summaries) {
+                        Object.entries(data.summaries).forEach(([speaker, items]) => {
+                            updateSummary(speaker, items);
+                        });
+                    }
+                    break;
+                    
+                case 'new_message':
+                    addMessage(data.data);
+                    break;
+                    
+                case 'update_summary':
+                    updateSummary(data.speaker, data.items);
+                    break;
+                    
+                case 'mediation':
+                    showMediation(data.message);
+                    break;
+            }
+        }
+
+        // ===== 대화 메시지 추가 =====
+        function addMessage(msg) {
+            // 빈 상태 숨기기
+            chatEmptyState.style.display = 'none';
+            
+            const speakerKey = speakerColors[msg.speaker] || 'a';
+            
+            const messageHTML = `
+                <div class="chat-message speaker-${speakerKey}">
+                    <span class="chat-time">${msg.timestamp}</span>
+                    <div class="chat-content">
+                        <div class="chat-speaker speaker-${speakerKey}">${msg.speaker}</div>
+                        <p class="chat-text">${escapeHtml(msg.text)}</p>
+                    </div>
+                </div>
+            `;
+            
+            chatLog.insertAdjacentHTML('beforeend', messageHTML);
+            chatLog.scrollTop = chatLog.scrollHeight;
+        }
+
+        // ===== 요약 업데이트 =====
+        function updateSummary(speaker, items) {
+            // 빈 상태 숨기기
+            summaryEmptyState.style.display = 'none';
+            
+            // 기존 섹션 찾기 또는 새로 생성
+            let section = document.querySelector(`[data-speaker="${speaker}"]`);
+            
+            if (!section) {
+                section = document.createElement('div');
+                section.className = 'summary-section open';
+                section.dataset.speaker = speaker;
+                summaryPanel.appendChild(section);
+            }
+            
+            const itemsHTML = items.map(item => `
+                <div class="summary-item">
+                    <div>
+                        <p class="summary-text">${escapeHtml(item.text)}</p>
+                        <p class="summary-label">${escapeHtml(item.label)}</p>
+                    </div>
+                </div>
+            `).join('');
+            
+            section.innerHTML = `
+                <div class="summary-header" onclick="toggleSummary(this)">
+                    <span class="summary-name">${speaker}</span>
+                    <span class="summary-toggle">▼</span>
+                </div>
+                <div class="summary-body">
+                    ${itemsHTML}
+                </div>
+            `;
+        }
+
+        // ===== 중재 메시지 표시 =====
+        function showMediation(message) {
+            mediationMessage.textContent = message;
+            mediationMessage.classList.remove('empty');
+        }
+
+        // ===== 요약 섹션 토글 =====
+        function toggleSummary(header) {
+            const section = header.parentElement;
+            section.classList.toggle('open');
+        }
+
+        // ===== HTML 이스케이프 =====
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // ===== 초기화 =====
+        connect();
+        
+        // Ping 전송 (연결 유지)
+        setInterval(() => {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'ping' }));
+            }
+        }, 30000);
+    </script>
+</body>
+</html>
