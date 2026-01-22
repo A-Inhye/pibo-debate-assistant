@@ -34,7 +34,8 @@ CONFIG = {
     "diarization": True,
     "diarization_backend": "sortformer",  # sortformer (권장) 또는 diart
     "sample_rate": 16000,
-    "chunk_duration": 0.1,  # 100ms 청크
+    "chunk_duration": 0.05,  # ← 0.1 → 0.05 (실시간↑)
+    "beam_size": 5,  # ← 이 줄 추가!
 }
 
 # ===== 전역 상태 =====
@@ -151,6 +152,7 @@ class RealtimeSTTProcessor:
             diarization_backend=CONFIG["diarization_backend"],
             pcm_input=True,
             vac=True,
+            beam_size=CONFIG.get("beam_size", 5),  # ← 이 줄 추가!
         )
 
         # AudioProcessor 생성
