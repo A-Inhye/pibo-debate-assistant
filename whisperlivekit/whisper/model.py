@@ -309,10 +309,17 @@ class TextDecoder(nn.Module):
             first_self_attn_key = self.blocks[0].attn.key_cache_id
             if first_self_attn_key in kv_cache:
                 offset = kv_cache[first_self_attn_key].shape[1]
-        
+
+        token_len = x.shape[-1]
+        max_pos = self.positional_embedding.shape[0]
+
+        # 안전한 offset 계산: positional_embedding 범위를 초과하지 않도록 보정
+        if offset + token_len > max_pos:
+            offset = max(0, max_pos - token_len)
+
         x = (
             self.token_embedding(x)
-            + self.positional_embedding[offset : offset + x.shape[-1]]
+            + self.positional_embedding[offset : offset + token_len]
         )
         x = x.to(xa.dtype)
 

@@ -127,6 +127,12 @@ class SimulStreamingOnlineProcessor:
             return timestamped_words, self.end
         except Exception as e:
             logger.exception(f"SimulStreaming processing error: {e}")
+            # 텐서 크기 불일치 등의 오류 시 상태 리셋
+            try:
+                self.model.refresh_segment(complete=True)
+                logger.info("SimulStreaming state reset after error")
+            except Exception as reset_error:
+                logger.warning(f"Failed to reset SimulStreaming state: {reset_error}")
             return [], self.end
 
     def warmup(self, audio, init_prompt=""):
