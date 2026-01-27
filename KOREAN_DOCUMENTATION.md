@@ -34,8 +34,8 @@
 |------|------|
 | **AI 모델** | OpenAI Whisper (음성인식), NLLB (번역), Sortformer/Diart (화자식별) |
 | **백엔드** | Python 3.9+, FastAPI, asyncio, WebSocket |
-| **추론 엔진** | PyTorch, Faster-Whisper (CTranslate2), MLX-Whisper |
-| **오디오 처리** | FFmpeg, librosa, soundfile, Silero VAD |
+| **추론 엔진** | PyTorch, Faster-Whisper (CTranslate2), MLX-Whisper(Apple Silicon (M1/M2/M3) 전용 초고속 백엔드) |
+| **오디오 처리** | FFmpeg, *librosa*(오디오 리샘플링, 노이즈 필터링 (필요시)), soundfile(WAV/PCM 파일 I/O, warmup 파일 처리), Silero VAD(음성 활동 감지. 침묵 시 버퍼링 중지) |
 | **프론트엔드** | HTML5, WebSocket API, AudioWorklet |
 
 ### 1.4 프로젝트 통계
@@ -53,6 +53,11 @@
 
 ### 2.1 시스템 구성도
 
+* 둘 중 하나 선택 V
+- MediaRecorder: 마이크에서 들어오는 연속 음성 스트림을 **파일 조각(chunk)**으로 쪼개는 역할
+- AudioWorklet: 브라우저 내부 DSP에서 Raw PCM 데이터를 실시간 추출. 파일 포맷 변환 없이 바로 사용 -> AudioWorklet은 웹 브라우저의 Web Audio API에서 매우 낮은 지연 시간(low-latency)으로 사용자 정의 오디오를 처리하기 위해 별도의 스레드에서 자바스크립트를 실행하는 기술
+
+- Silero VAD -> 말소리 감지: 침묵 스킵?
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                        브라우저 클라이언트                      │
