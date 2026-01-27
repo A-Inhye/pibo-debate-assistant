@@ -163,7 +163,16 @@ class MultiHeadAttention(nn.Module):
         else:
             qk = (q * scale) @ (k * scale).transpose(-1, -2)
             if mask is not None:
-                qk = qk + mask[:n_ctx, :n_ctx]
+                # KV Cache 사용 시 k_len이 n_ctx보다 클 수 있음
+                k_len = qk.shape[-1]
+                mask_n_ctx = min(n_ctx, mask.shape[0])
+                mask_k_len = min(k_len, mask.shape[1])
+                # mask 크기를 qk에 맞게 조정
+                if k_len <= mask.shape[1]:
+                    qk = qk + mask[:mask_n_ctx, :k_len]
+                else:
+                    # mask가 qk보다 작으면 패딩 또는 마스크 생략
+                    qk[:, :, :mask_n_ctx, :mask_k_len] = qk[:, :, :mask_n_ctx, :mask_k_len] + mask[:mask_n_ctx, :mask_k_len]
             qk = qk.float()
 
             w = F.softmax(qk, dim=-1).to(q.dtype)
