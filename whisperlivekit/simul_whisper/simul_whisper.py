@@ -271,12 +271,10 @@ class AlignAtt:
         self.state.cumulative_time_offset = 0.0
         self.init_context()
 
-        # KV Cache 리셋 - 캐시 누적으로 인한 텐서 크기 불일치 방지
-        if hasattr(self.state, 'kv_cache'):
-            self.state.kv_cache.clear()
+        # KV Cache 완전 리셋 (새 dict 생성 후 참조 재연결)
+        self.state.kv_cache = {}
         if hasattr(self.state, 'inference') and self.state.inference is not None:
-            if hasattr(self.state.inference, 'kv_cache'):
-                self.state.inference.kv_cache = {}
+            self.state.inference.kv_cache = self.state.kv_cache  # 같은 객체 참조 유지
 
         logger.debug(f"Context: {self.state.context}")
         if not complete and len(self.state.segments) > 2:
