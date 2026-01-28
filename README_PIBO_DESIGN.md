@@ -4,6 +4,46 @@
 
 ---
 
+## 수정/생성한 파일 목록
+
+> 이 프로젝트를 위해 **새로 생성하거나 수정한 파일**들입니다.
+
+### 새로 생성한 파일 (Created)
+
+| 파일 경로 | 설명 |
+|-----------|------|
+| `whisperlivekit/basic_server_pibo_design.py` | 커스텀 서버 (LocalAgreement 강제 적용) |
+| `whisperlivekit/web_pibo_design/live_transcription.html` | 커스텀 UI - HTML |
+| `whisperlivekit/web_pibo_design/live_transcription.css` | 커스텀 UI - CSS (동적 클래스 포함) |
+| `whisperlivekit/web_pibo_design/live_transcription.js` | JavaScript (원본 web/에서 복사) |
+| `whisperlivekit/web_pibo_design/web_interface.py` | 인라인 HTML 생성 유틸리티 |
+| `whisperlivekit/web_pibo_design/__init__.py` | 패키지 초기화 |
+| `whisperlivekit/web_pibo_design/pcm_worklet.js` | AudioWorklet (원본에서 복사) |
+| `whisperlivekit/web_pibo_design/recorder_worker.js` | Web Worker (원본에서 복사) |
+| `whisperlivekit/web_pibo_design/src/*.svg` | 아이콘 파일들 (원본에서 복사) |
+| `README_PIBO_DESIGN.md` | 이 문서 |
+
+### 수정한 파일 (Modified)
+
+| 파일 경로 | 수정 내용 |
+|-----------|-----------|
+| `pyproject.toml` | `whisperlivekit.web_pibo_design` 패키지 등록 |
+
+### 핵심 변경 사항
+
+**1. `basic_server_pibo_design.py`에서 LocalAgreement 강제 적용:**
+```python
+from whisperlivekit.web_pibo_design.web_interface import get_inline_ui_html
+args.backend_policy = "localagreement"  # LocalAgreement 강제 사용
+```
+
+**2. `live_transcription.css`에 동적 클래스 추가:**
+- `.spinner`, `.speaker-badge`, `.textcontent` - JavaScript가 동적으로 생성하는 요소
+- `.label_*`, `.buffer_*` - 전사 결과 표시용
+- `--wave-stroke: #4ade80` - 파형 시각화용 CSS 변수
+
+---
+
 ## 프로젝트 개요
 
 WhisperLiveKit은 OpenAI Whisper 모델을 사용한 실시간 음성 전사(STT) 시스템입니다. 이 프로젝트에서는 원본 WhisperLiveKit에 다음을 추가했습니다:
@@ -76,21 +116,28 @@ args.backend_policy = "localagreement"  # LocalAgreement 강제 사용
 
 ---
 
-## 삭제해도 되는 파일
+## 삭제된 파일 (정리 완료)
 
-이 프로젝트 실행에 **필요 없는 파일**들입니다. 삭제하면 저장 공간을 절약할 수 있습니다.
+개발 과정에서 생성되었던 **중복 파일들**은 이미 삭제되었습니다.
 
-### 삭제 가능한 파일/폴더
+### 삭제된 파일/폴더
 
-| 파일/폴더 | 이유 |
+| 파일/폴더 | 삭제 이유 |
+|-----------|-----------|
+| `web_pibo/` | 이전 버전 UI, `web_pibo_design/`으로 대체됨 |
+| `web_pibo_localagreement/` | 중복 UI, `web_pibo_design/`으로 대체됨 |
+| `basic_server_pibo.py` | 이전 버전 서버, `basic_server_pibo_design.py`로 대체됨 |
+| `basic_server_pibo_localagreement.py` | 중복 서버, `basic_server_pibo_design.py`로 대체됨 |
+
+### 유지 중인 원본 파일 (나중에 사용 가능)
+
+| 파일/폴더 | 설명 |
 |-----------|------|
-| `web_pibo/` | 이전 버전 UI, `web_pibo_design/` 사용 시 불필요 |
-| `web_pibo_localagreement/` | 중복 UI, `web_pibo_design/` 사용 시 불필요 |
-| `basic_server_pibo.py` | 이전 버전 서버, `basic_server_pibo_design.py` 사용 시 불필요 |
-| `basic_server_pibo_localagreement.py` | 중복 서버, `basic_server_pibo_design.py` 사용 시 불필요 |
-| `simul_whisper/` | LocalAgreement만 사용 시 불필요 (단, 원본 유지 권장) |
+| `web/` | WhisperLiveKit 원본 웹 UI |
+| `simul_whisper/` | SimulStreaming 백엔드 (현재 미사용) |
+| `basic_server.py` | WhisperLiveKit 원본 서버 |
 
-### 삭제하면 안 되는 파일
+### 삭제하면 안 되는 파일 (필수)
 
 | 파일/폴더 | 이유 |
 |-----------|------|
