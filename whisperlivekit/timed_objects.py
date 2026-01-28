@@ -175,7 +175,7 @@ class SilentSegment(Segment):
         self.text = ''
 
 
-@dataclass  
+@dataclass
 class FrontData():
     status: str = ''
     error: str = ''
@@ -185,7 +185,8 @@ class FrontData():
     buffer_translation: str = ''
     remaining_time_transcription: float = 0.
     remaining_time_diarization: float = 0.
-    
+    summary: Optional[Dict[str, Any]] = None  # ChatGPT 요약 결과
+
     def to_dict(self) -> Dict[str, Any]:
         """Serialize the front-end data payload."""
         _dict: Dict[str, Any] = {
@@ -199,6 +200,8 @@ class FrontData():
         }
         if self.error:
             _dict['error'] = self.error
+        if self.summary:
+            _dict['summary'] = self.summary
         return _dict
 
 @dataclass  

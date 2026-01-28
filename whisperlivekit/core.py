@@ -127,6 +127,8 @@ class TranscriptionEngine:
             "diarization_backend": "sortformer",  # 화자 식별 백엔드
             "backend_policy": "simulstreaming",  # 전사 정책 (simulstreaming 또는 localagreement)
             "backend": "auto",  # ASR 백엔드 (auto, mlx-whisper, faster-whisper, whisper)
+            "enable_summary": False,  # ChatGPT 요약 기능 활성화
+            "summary_model": "gpt-4o",  # 요약에 사용할 ChatGPT 모델
         }
         global_params = update_with_kwargs(global_params, kwargs)
 

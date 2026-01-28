@@ -317,6 +317,25 @@ def parse_args():
         help="600M or 1.3B",
     )
 
+    # Summary 관련 인자 (ChatGPT API)
+    summary_group = parser.add_argument_group('Summary arguments (ChatGPT API)')
+
+    summary_group.add_argument(
+        "--enable-summary",
+        action="store_true",
+        default=False,
+        dest="enable_summary",
+        help="Enable ChatGPT-based conversation summarization.",
+    )
+
+    summary_group.add_argument(
+        "--summary-model",
+        type=str,
+        default="gpt-4o",
+        dest="summary_model",
+        help="ChatGPT model for summarization (default: gpt-4o).",
+    )
+
     args = parser.parse_args()
     
     args.transcription = not args.no_transcription

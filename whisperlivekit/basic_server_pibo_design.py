@@ -44,6 +44,13 @@ args = parse_args()
 args.backend_policy = "localagreement"
 logger.info(f"백엔드 정책: {args.backend_policy} (LocalAgreement)")
 
+# 요약 기능 설정 확인
+import os
+logger.info(f"=== 요약 기능 설정 ===")
+logger.info(f"  --enable-summary: {getattr(args, 'enable_summary', False)}")
+logger.info(f"  --summary-model: {getattr(args, 'summary_model', 'gpt-4o')}")
+logger.info(f"  OPENAI_API_KEY: {'설정됨' if os.getenv('OPENAI_API_KEY') else '미설정'}")
+
 # 전역 전사 엔진 (싱글톤, 모든 연결이 공유)
 transcription_engine = None
 

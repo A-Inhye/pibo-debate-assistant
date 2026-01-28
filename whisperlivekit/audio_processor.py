@@ -34,6 +34,7 @@ from whisperlivekit.silero_vad_iterator import FixedVADIterator, OnnxWrapper, lo
 from whisperlivekit.timed_objects import (ASRToken, ChangeSpeaker, FrontData,
                                           Segment, Silence, State, Transcript)
 from whisperlivekit.tokens_alignment import TokensAlignment
+from whisperlivekit.summary import ConversationSummarizer, SummaryResult
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -228,6 +229,23 @@ class AudioProcessor:
         if models.translation_model:
             # 번역 프로세서 생성
             self.translation = online_translation_factory(self.args, models.translation_model)
+
+        # 요약 프로세서 (ChatGPT API)
+        self.summarizer: Optional[ConversationSummarizer] = None
+        logger.info(f"enable_summary 설정: {getattr(self.args, 'enable_summary', 'NOT SET')}")
+        if getattr(self.args, 'enable_summary', False):
+            import os
+            logger.info(f"OPENAI_API_KEY 설정 여부: {'SET' if os.getenv('OPENAI_API_KEY') else 'NOT SET'}")
+            try:
+                self.summarizer = ConversationSummarizer(
+                    model=getattr(self.args, 'summary_model', 'gpt-4o'),
+                    language=self.args.lan if self.args.lan != 'auto' else 'ko'
+                )
+                logger.info("ChatGPT 요약기 초기화 완료")
+            except Exception as e:
+                import traceback
+                logger.warning(f"요약기 초기화 실패: {e}")
+                logger.warning(traceback.format_exc())
 
     async def _push_silence_event(self) -> None:
         if self.transcription_queue:
@@ -535,7 +553,28 @@ class AudioProcessor:
                     self.last_response_content = response
 
                 if self.is_stopping and self._processing_tasks_done():
-                    logger.info("Results formatter: All upstream processors are done and in stopping state. Terminating.")
+                    logger.info("Results formatter: All upstream processors are done and in stopping state.")
+
+                    # 종료 전 요약 생성
+                    if self.summarizer:
+                        logger.info("요약 생성 시작...")
+                        summary_result = await self.generate_summary()
+                        if summary_result:
+                            # 요약 결과를 포함한 최종 응답 전송
+                            final_response = FrontData(
+                                status="summary",
+                                lines=lines,
+                                buffer_transcription="",
+                                buffer_diarization="",
+                                buffer_translation="",
+                                remaining_time_transcription=0,
+                                remaining_time_diarization=0,
+                                summary=summary_result.to_dict()
+                            )
+                            yield final_response
+                            logger.info("요약 전송 완료")
+
+                    logger.info("Results formatter: Terminating.")
                     return
 
                 await asyncio.sleep(0.05)
@@ -634,6 +673,52 @@ class AudioProcessor:
         if self.diarization:
             self.diarization.close()
         logger.info("AudioProcessor cleanup complete.")
+
+    async def generate_summary(self) -> Optional[SummaryResult]:
+        """
+        전체 대화를 요약 (녹음 종료 시 호출)
+
+        Returns:
+            SummaryResult: 요약 결과 (summary, speaker_summaries)
+            None: 요약기가 비활성화되었거나 대화가 없는 경우
+        """
+        if not self.summarizer:
+            logger.debug("요약기가 비활성화되어 있습니다.")
+            return None
+
+        # 현재까지의 모든 세그먼트 수집
+        self.tokens_alignment.update()
+        lines, _, _ = self.tokens_alignment.get_lines(
+            diarization=self.args.diarization,
+            translation=False,
+            current_silence=None
+        )
+
+        if not lines:
+            logger.info("요약할 대화가 없습니다.")
+            return None
+
+        # 세그먼트를 딕셔너리 리스트로 변환
+        segments = []
+        for line in lines:
+            if hasattr(line, 'text') and line.text:
+                segments.append({
+                    "speaker": line.speaker,
+                    "text": line.text,
+                    "start": line.start,
+                    "end": line.end
+                })
+
+        if not segments:
+            return None
+
+        logger.info(f"요약 시작: {len(segments)}개 세그먼트")
+
+        # ChatGPT API 호출
+        result = await self.summarizer.summarize(segments)
+        if result:
+            logger.info(f"요약 완료: {result.summary[:50]}...")
+        return result
 
     def _processing_tasks_done(self) -> bool:
         """Return True when all active processing tasks have completed."""

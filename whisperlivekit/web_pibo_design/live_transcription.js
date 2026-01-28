@@ -426,7 +426,13 @@ function setupWebSocket() {
         remaining_time_transcription = 0,
         remaining_time_diarization = 0,
         status = "active_transcription",
+        summary = null,
       } = data;
+
+      // 요약 데이터가 있으면 요약 패널 업데이트
+      if (summary) {
+        updateSummaryPanel(summary);
+      }
 
       renderLinesWithBuffer(
         lines,
@@ -440,6 +446,81 @@ function setupWebSocket() {
       );
     };
   });
+}
+
+/**
+ * 요약 패널 업데이트
+ *
+ * ChatGPT API에서 받은 요약 결과를 Right Panel에 표시합니다.
+ *
+ * @param {Object} summary - 요약 결과 객체
+ *   - summary: 전체 요약 문자열
+ *   - speaker_summaries: {화자번호: 논지} 객체
+ *   - token_usage: 토큰 사용량
+ *   - error: 에러 메시지 (있을 경우)
+ */
+function updateSummaryPanel(summary) {
+  const container = document.getElementById('speakerSummary');
+  if (!container || !summary) return;
+
+  let html = '';
+
+  // 에러가 있으면 에러 표시
+  if (summary.error) {
+    html = `
+      <div class="summary-error">
+        <p>요약 생성 실패: ${escapeHtml(summary.error)}</p>
+      </div>
+    `;
+    container.innerHTML = html;
+    return;
+  }
+
+  // 전체 요약
+  if (summary.summary) {
+    html += `
+      <div class="summary-section">
+        <h3 class="summary-title">전체 요약</h3>
+        <p class="summary-text">${escapeHtml(summary.summary)}</p>
+      </div>
+    `;
+  }
+
+  // 화자별 논지
+  if (summary.speaker_summaries && Object.keys(summary.speaker_summaries).length > 0) {
+    html += `<div class="summary-section"><h3 class="summary-title">화자별 논지</h3>`;
+    for (const [speaker, argument] of Object.entries(summary.speaker_summaries)) {
+      const speakerNum = parseInt(speaker) || speaker;
+      html += `
+        <div class="speaker-argument">
+          <span class="speaker-badge speaker-${speakerNum}">화자 ${speakerNum}</span>
+          <p>${escapeHtml(argument)}</p>
+        </div>
+      `;
+    }
+    html += `</div>`;
+  }
+
+  // 토큰 사용량 (디버깅용)
+  if (summary.token_usage) {
+    html += `
+      <div class="summary-meta">
+        <small>토큰 사용량: ${summary.token_usage}</small>
+      </div>
+    `;
+  }
+
+  container.innerHTML = html || '<div class="placeholder-message">요약 결과가 없습니다.</div>';
+}
+
+/**
+ * HTML 이스케이프 유틸리티
+ */
+function escapeHtml(text) {
+  if (!text) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
 }
 
 function renderLinesWithBuffer(

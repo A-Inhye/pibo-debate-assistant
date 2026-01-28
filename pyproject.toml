@@ -64,7 +64,8 @@ packages = [
     "whisperlivekit.web",
     "whisperlivekit.web_pibo_design",
     "whisperlivekit.local_agreement",
-    "whisperlivekit.silero_vad_models"
+    "whisperlivekit.silero_vad_models",
+    "whisperlivekit.summary"
 ]
 
 [tool.setuptools.package-data]

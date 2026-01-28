@@ -473,6 +473,7 @@ body {
 .placeholder-message,
 .summary-placeholder {
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
     height: 100%;
@@ -480,6 +481,99 @@ body {
     font-size: 13px;
     color: var(--text-caption);
     font-style: italic;
+    text-align: center;
+    gap: 8px;
+}
+
+.placeholder-icon {
+    font-size: 2rem;
+    margin-bottom: 8px;
+}
+
+/* Summary Panel Styles */
+.summary-section {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border-light);
+}
+
+.summary-section:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+}
+
+.summary-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--accent-color);
+    margin-bottom: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.summary-text {
+    line-height: 1.7;
+    color: var(--text-primary);
+    font-size: 14px;
+}
+
+.speaker-argument {
+    margin: 0.75rem 0;
+    padding: 0.75rem;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    border-left: 3px solid var(--accent-color);
+}
+
+.speaker-argument .speaker-badge {
+    display: inline-block;
+    font-weight: 600;
+    font-size: 12px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-bottom: 0.5rem;
+    background: var(--accent-color);
+    color: white;
+}
+
+.speaker-argument .speaker-badge.speaker-1 {
+    background: var(--speaker-a);
+}
+
+.speaker-argument .speaker-badge.speaker-2 {
+    background: var(--speaker-b);
+}
+
+.speaker-argument .speaker-badge.speaker-3 {
+    background: var(--speaker-c);
+}
+
+.speaker-argument .speaker-badge.speaker-4 {
+    background: var(--speaker-d);
+}
+
+.speaker-argument p {
+    margin: 0;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+
+.summary-meta {
+    margin-top: 1rem;
+    padding-top: 0.75rem;
+    border-top: 1px dashed var(--border-light);
+    color: var(--muted);
+    font-size: 11px;
+}
+
+.summary-error {
+    padding: 1rem;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 8px;
+    color: #dc2626;
+    font-size: 13px;
 }
 
 /* Responsive */
