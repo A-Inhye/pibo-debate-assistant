@@ -469,31 +469,31 @@ function updateSummaryPanel(summary) {
   if (summary.error) {
     html = `
       <div class="summary-error">
-        <p>요약 생성 실패: ${escapeHtml(summary.error)}</p>
+        <p>Summary failed: ${escapeHtml(summary.error)}</p>
       </div>
     `;
     container.innerHTML = html;
     return;
   }
 
-  // 전체 요약
+  // Summary
   if (summary.summary) {
     html += `
       <div class="summary-section">
-        <h3 class="summary-title">전체 요약</h3>
+        <h3 class="summary-title">Summary</h3>
         <p class="summary-text">${escapeHtml(summary.summary)}</p>
       </div>
     `;
   }
 
-  // 화자별 논지
+  // Speaker Arguments
   if (summary.speaker_summaries && Object.keys(summary.speaker_summaries).length > 0) {
-    html += `<div class="summary-section"><h3 class="summary-title">화자별 논지</h3>`;
+    html += `<div class="summary-section"><h3 class="summary-title">Speaker Arguments</h3>`;
     for (const [speaker, argument] of Object.entries(summary.speaker_summaries)) {
       const speakerNum = parseInt(speaker) || speaker;
       html += `
         <div class="speaker-argument">
-          <span class="speaker-badge speaker-${speakerNum}">화자 ${speakerNum}</span>
+          <span class="speaker-badge speaker-${speakerNum}">Speaker ${speakerNum}</span>
           <p>${escapeHtml(argument)}</p>
         </div>
       `;
@@ -505,12 +505,12 @@ function updateSummaryPanel(summary) {
   if (summary.token_usage) {
     html += `
       <div class="summary-meta">
-        <small>토큰 사용량: ${summary.token_usage}</small>
+        <small>Token usage: ${summary.token_usage}</small>
       </div>
     `;
   }
 
-  container.innerHTML = html || '<div class="placeholder-message">요약 결과가 없습니다.</div>';
+  container.innerHTML = html || '<div class="placeholder-message">No summary available.</div>';
 }
 
 /**
@@ -1097,11 +1097,11 @@ const speakerMessages = {};
 function updateSpeakerSummary() {
   const summaryContainer = document.getElementById('speakerSummary');
 
-  // 화자가 없으면 플레이스홀더 표시
+  // Show placeholder if no speakers
   if (Object.keys(speakerMessages).length === 0) {
     summaryContainer.innerHTML = `
       <div class="summary-placeholder">
-        대화가 시작되면 화자별 논지가 여기에 표시됩니다.
+        Speaker arguments will appear here when conversation starts.
       </div>
     `;
     return;

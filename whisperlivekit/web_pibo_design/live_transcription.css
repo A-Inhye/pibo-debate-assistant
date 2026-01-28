@@ -527,11 +527,14 @@ body {
 
 .speaker-argument .speaker-badge {
     display: inline-block;
+    width: auto;
+    height: auto;
     font-weight: 600;
     font-size: 12px;
     padding: 2px 8px;
     border-radius: 4px;
     margin-bottom: 0.5rem;
+    margin-left: 0;
     background: var(--accent-color);
     color: white;
 }
