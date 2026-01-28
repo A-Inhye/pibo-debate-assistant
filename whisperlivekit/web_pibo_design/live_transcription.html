@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-time Debate Support System</title>
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Source+Sans+3:wght@400;500;600&family=Source+Code+Pro:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="live_transcription.css" />
+</head>
+<body>
+    <div class="figure-container">
+        <div class="interface-wrapper">
+            <!-- Header -->
+            <div class="header">
+                <div class="header-left">
+                    <div class="header-title">실시간 상호작용형 자율 진화형 토론 중재 에이전트</div>
+                </div>
+                <div class="header-right">
+                    <div class="header-controls">
+                        <!-- 녹음 버튼 -->
+                        <button id="recordButton" class="record-btn">
+                            <div class="shape-container">
+                                <div class="shape"></div>
+                            </div>
+                            <div class="recording-info">
+                                <div class="wave-container">
+                                    <canvas id="waveCanvas"></canvas>
+                                </div>
+                                <div class="timer">00:00</div>
+                            </div>
+                        </button>
+
+                        <!-- 설정 버튼 -->
+                        <button id="settingsToggle" class="settings-toggle" title="설정">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="3"></circle>
+                                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="header-status">
+                        <div class="status-badge">
+                            <span class="status-dot"></span>
+                            <span id="connectionStatus">DISCONNECTED</span>
+                        </div>
+                        <span class="elapsed-time">00:00:00</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 설정 패널 -->
+            <div class="settings settings-panel" id="settingsPanel">
+                <div class="settings-content">
+                    <div class="field">
+                        <label for="websocketInput">Websocket URL</label>
+                        <input id="websocketInput" type="text" placeholder="ws://host:port/asr" />
+                    </div>
+                    <div class="field">
+                        <label for="microphoneSelect">마이크 선택</label>
+                        <select id="microphoneSelect">
+                            <option value="">기본 마이크</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 상태 메시지 -->
+            <p id="status" class="status-message"></p>
+
+            <!-- AI Banner -->
+            <div class="ai-banner">
+                <div class="ai-banner-label">AI Mediator</div>
+                <div class="ai-banner-text">
+                    추후 개발 예정
+                </div>
+            </div>
+
+            <!-- Content Grid -->
+            <div class="content-grid">
+                <!-- Left Panel: Transcript -->
+                <div class="panel">
+                    <div class="panel-header">
+                        <div class="panel-title">Live Transcript</div>
+                        <div class="panel-meta" id="utteranceCount">0 utterances</div>
+                    </div>
+                    <div class="panel-content transcript-container" id="transcript-container">
+                        <div id="linesTranscript">
+                            <!-- 실시간 대화가 여기에 표시됩니다 -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Panel: Summary -->
+                <div class="panel">
+                    <div class="panel-header">
+                        <div class="panel-title">Argument Summary</div>
+                        <div class="panel-meta">auto-generated</div>
+                    </div>
+                    <div class="panel-content">
+                        <div id="speakerSummary">
+                            <div class="placeholder-message">
+                                추후 개발 예정
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="live_transcription.js"></script>
+</body>
+</html>
