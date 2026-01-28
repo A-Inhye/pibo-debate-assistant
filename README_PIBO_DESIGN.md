@@ -1,6 +1,18 @@
 # Pibo Debate Assistant - 커스텀 디자인 버전
 
-실시간 토론 지원 시스템을 위한 WhisperLiveKit 커스텀 UI 버전입니다.
+이 문서는 **실시간 토론 지원 시스템**을 위해 WhisperLiveKit을 커스터마이징한 내용을 설명합니다.
+
+---
+
+## 프로젝트 개요
+
+WhisperLiveKit은 OpenAI Whisper 모델을 사용한 실시간 음성 전사(STT) 시스템입니다. 이 프로젝트에서는 원본 WhisperLiveKit에 다음을 추가했습니다:
+
+1. **커스텀 웹 UI** - 토론 지원에 적합한 2분할 레이아웃 디자인
+2. **LocalAgreement 백엔드 고정** - 안정적인 전사를 위해 SimulStreaming 대신 LocalAgreement 사용
+3. **화자 분리(Diarization)** - Sortformer 모델을 사용한 실시간 화자 식별
+
+---
 
 ## 실행 방법
 
@@ -8,172 +20,175 @@
 python -m whisperlivekit.basic_server_pibo_design --model medium --language ko --diarization
 ```
 
-브라우저에서 `http://localhost:8000` 접속
+실행 후 브라우저에서 `http://localhost:8000` 접속하면 커스텀 UI가 표시됩니다.
+
+### 실행 옵션 설명
+
+| 옵션 | 설명 |
+|------|------|
+| `--model medium` | Whisper 모델 크기 (tiny, base, small, medium, large-v3) |
+| `--language ko` | 인식할 언어 (ko=한국어, en=영어, auto=자동감지) |
+| `--diarization` | 화자 분리 활성화 (누가 말했는지 구분) |
 
 ---
 
-## 필요한 파일 구조
+## 추가한 파일 설명
 
-```
-whisperlivekit/
-├── basic_server_pibo_design.py      # 서버 메인 파일 (신규)
-├── web_pibo_design/                  # 커스텀 UI 폴더 (신규)
-│   ├── __init__.py
-│   ├── live_transcription.html       # 커스텀 디자인 HTML
-│   ├── live_transcription.css        # 커스텀 스타일
-│   ├── live_transcription.js         # 프론트엔드 로직
-│   ├── pcm_worklet.js                # AudioWorklet
-│   ├── recorder_worker.js            # Web Worker
-│   ├── web_interface.py              # HTML 인라인 생성
-│   └── src/                          # SVG 아이콘
-│       ├── dark_mode.svg
-│       ├── light_mode.svg
-│       ├── settings.svg
-│       ├── speaker.svg
-│       └── ...
-├── local_agreement/                  # LocalAgreement 백엔드 (기존)
-├── simul_whisper/                    # SimulStreaming 백엔드 (기존)
-└── ...
+### 1. `basic_server_pibo_design.py` (서버 파일)
+
+FastAPI 기반 WebSocket 서버입니다. 원본 `basic_server.py`를 복사하여 다음을 변경했습니다:
+
+- **웹 UI 경로 변경**: `web/` → `web_pibo_design/`
+- **LocalAgreement 백엔드 강제 적용**: SimulStreaming의 텐서 오류 문제를 피하기 위해
+
+```python
+# 핵심 변경 부분
+from whisperlivekit.web_pibo_design.web_interface import get_inline_ui_html
+
+args.backend_policy = "localagreement"  # LocalAgreement 강제 사용
 ```
 
----
+### 2. `web_pibo_design/` (커스텀 UI 폴더)
 
-## 수정된 파일 목록
-
-### 1. 신규 생성 파일
+사용자 제안 디자인을 적용한 웹 인터페이스입니다.
 
 | 파일 | 설명 |
 |------|------|
-| `basic_server_pibo_design.py` | FastAPI 서버, LocalAgreement 백엔드 기본 적용 |
-| `web_pibo_design/` | 사용자 제안 디자인 기반 커스텀 UI |
+| `live_transcription.html` | 메인 HTML - 다크 헤더, 2분할 레이아웃 |
+| `live_transcription.css` | 스타일시트 - 커스텀 디자인 + 동적 요소 스타일 |
+| `live_transcription.js` | JavaScript - 녹음, WebSocket 통신, 화면 업데이트 (원본과 동일) |
+| `web_interface.py` | HTML/CSS/JS를 하나의 인라인 HTML로 합치는 유틸리티 |
+| `pcm_worklet.js` | AudioWorklet - PCM 오디오 처리 |
+| `recorder_worker.js` | Web Worker - MediaRecorder 오디오 처리 |
+| `src/*.svg` | 아이콘 파일들 |
 
-### 2. 수정된 기존 파일
+### 3. `pyproject.toml` 수정
 
-| 파일 | 수정 내용 |
-|------|----------|
-| `pyproject.toml` | `web_pibo_design` 패키지 등록 |
-| `whisperlivekit/whisper/model.py` | positional_embedding offset 범위 초과 방지 |
-| `whisperlivekit/simul_whisper/backend.py` | 오류 발생 시 상태 리셋 추가 |
+새로운 패키지를 Python이 인식하도록 등록했습니다:
 
----
-
-## 주요 수정 내용 상세
-
-### pyproject.toml
 ```toml
-[tool.setuptools]
-packages = [
-    ...
-    "whisperlivekit.web_pibo_design",  # 추가
-    ...
-]
+# packages 목록에 추가
+"whisperlivekit.web_pibo_design"
 
-[tool.setuptools.package-data]
-whisperlivekit = [
-    ...
-    "web_pibo_design/*.html", "web_pibo_design/*.css", "web_pibo_design/*.js", "web_pibo_design/src/*.svg"  # 추가
-]
-```
-
-### basic_server_pibo_design.py (핵심 부분)
-```python
-from whisperlivekit.web_pibo_design.web_interface import get_inline_ui_html
-
-# LocalAgreement 백엔드 강제 설정
-args.backend_policy = "localagreement"
-```
-
-### model.py (offset 보정)
-```python
-# 수정 전
-offset = kv_cache[first_self_attn_key].shape[1]
-
-# 수정 후
-offset = kv_cache[first_self_attn_key].shape[1]
-token_len = x.shape[-1]
-max_pos = self.positional_embedding.shape[0]
-if offset + token_len > max_pos:
-    offset = max(0, max_pos - token_len)
-```
-
-### backend.py (오류 복구)
-```python
-except Exception as e:
-    logger.exception(f"SimulStreaming processing error: {e}")
-    # 오류 시 상태 리셋 추가
-    try:
-        self.model.refresh_segment(complete=True)
-    except Exception as reset_error:
-        logger.warning(f"Failed to reset: {reset_error}")
-    return [], self.end
+# package-data에 추가 (정적 파일 포함)
+"web_pibo_design/*.html", "web_pibo_design/*.css", ...
 ```
 
 ---
 
-## 커스텀 UI 특징
+## 삭제해도 되는 파일
 
-### 디자인
-- 다크 헤더 (타이틀 + 녹음 버튼 + 상태 표시)
-- AI Mediator 배너 (추후 개발 예정)
-- 2분할 레이아웃 (Live Transcript | Argument Summary)
+이 프로젝트 실행에 **필요 없는 파일**들입니다. 삭제하면 저장 공간을 절약할 수 있습니다.
 
-### 기능
-- 실시간 음성 전사 (STT)
-- 화자 분리 (Diarization)
-- 파형 시각화 (녹음 중)
-- 설정 토글 (WebSocket URL, 마이크 선택)
+### 삭제 가능한 파일/폴더
+
+| 파일/폴더 | 이유 |
+|-----------|------|
+| `web_pibo/` | 이전 버전 UI, `web_pibo_design/` 사용 시 불필요 |
+| `web_pibo_localagreement/` | 중복 UI, `web_pibo_design/` 사용 시 불필요 |
+| `basic_server_pibo.py` | 이전 버전 서버, `basic_server_pibo_design.py` 사용 시 불필요 |
+| `basic_server_pibo_localagreement.py` | 중복 서버, `basic_server_pibo_design.py` 사용 시 불필요 |
+| `simul_whisper/` | LocalAgreement만 사용 시 불필요 (단, 원본 유지 권장) |
+
+### 삭제하면 안 되는 파일
+
+| 파일/폴더 | 이유 |
+|-----------|------|
+| `local_agreement/` | LocalAgreement 백엔드 핵심 코드 |
+| `whisper/` | Whisper 모델 관련 코드 |
+| `diarization/` | 화자 분리 코드 |
+| `audio_processor.py` | 오디오 처리 파이프라인 |
+| `core.py` | TranscriptionEngine 핵심 코드 |
 
 ---
 
-## 백엔드 정책
+## 백엔드 정책 비교
 
-| 정책 | 설명 | 안정성 |
-|------|------|--------|
-| `localagreement` | LocalAgreement 알고리즘 (기본) | 안정적 |
-| `simulstreaming` | SimulStreaming (AlignAtt) | 텐서 오류 가능 |
+WhisperLiveKit은 두 가지 스트리밍 백엔드를 제공합니다:
 
-이 버전은 **LocalAgreement**를 기본으로 사용합니다.
+### LocalAgreement (이 프로젝트에서 사용)
+
+- **동작 방식**: 여러 번의 전사 결과를 비교하여 일치하는 부분만 확정
+- **장점**: 안정적, 오류 적음
+- **단점**: 약간의 지연 발생 (확정까지 시간 필요)
+
+### SimulStreaming (사용 안 함)
+
+- **동작 방식**: Cross-attention을 분석하여 실시간으로 단어 경계 감지
+- **장점**: 낮은 지연
+- **단점**: KV Cache 관련 텐서 오류 발생 가능
+
+**결론**: 안정성을 위해 LocalAgreement를 사용합니다.
 
 ---
 
-## 의존성
+## 커스텀 UI 구조
 
-```bash
-pip install -e .
 ```
-
-추가 의존성:
-- `faster-whisper` 또는 `whisper`
-- `torch`, `torchaudio`
-- `fastapi`, `uvicorn`
-- Diarization: `nemo_toolkit` (Sortformer)
-
----
-
-## 관련 커밋
-
-```
-aaa0fe6 feat: 커스텀 디자인 UI 추가 (web_pibo_design)
-a238147 revert: SimulStreaming 코드 4c31bd4 상태로 롤백
-4c31bd4 fix: SimulStreaming 텐서 크기 불일치 오류 방지 및 복구
-4967c79 feat: Add LocalAgreement backend version for Pibo project
+┌─────────────────────────────────────────────────────────────┐
+│  실시간 상호작용형 자율 진화형 토론 중재 에이전트    [●] 00:00  │  ← 다크 헤더
+├─────────────────────────────────────────────────────────────┤
+│  AI Mediator │ 추후 개발 예정                                │  ← AI 배너
+├────────────────────────────┬────────────────────────────────┤
+│                            │                                │
+│   Live Transcript          │   Argument Summary             │
+│                            │                                │
+│   화자 1: 안녕하세요...     │   추후 개발 예정                │
+│   화자 2: 네, 반갑습니다... │                                │
+│                            │                                │
+└────────────────────────────┴────────────────────────────────┘
+      ↑ 실시간 전사 영역              ↑ 요약 영역 (미구현)
 ```
 
 ---
 
 ## 문제 해결
 
-### lag가 계속 증가하는 경우
+### 1. lag(지연)가 계속 증가하는 경우
+
+처리 속도가 입력 속도를 따라가지 못하는 상황입니다.
+
+**해결 방법:**
 ```bash
-# 모델 크기 줄이기
+# 방법 1: 더 작은 모델 사용
 python -m whisperlivekit.basic_server_pibo_design --model small --language ko --diarization
 
-# 또는 화자 분리 비활성화
+# 방법 2: 화자 분리 비활성화 (GPU 부담 감소)
 python -m whisperlivekit.basic_server_pibo_design --model medium --language ko
 ```
 
-### 서버 재시작 전 초기화
+### 2. 서버가 느려지는 경우
+
+GPU 메모리에 이전 상태가 남아있을 수 있습니다.
+
+**해결 방법:**
 ```bash
-pkill -f "whisperlivekit"
+# 서버 종료
+Ctrl+C
+
+# GPU 메모리 정리 (선택)
 python -c "import torch; torch.cuda.empty_cache()"
+
+# 서버 재시작
+python -m whisperlivekit.basic_server_pibo_design --model medium --language ko --diarization
 ```
+
+### 3. 화자가 2명만 인식되는 경우
+
+Sortformer 모델은 기본적으로 최대 4명까지 인식합니다. 실제로 2명만 나오는 것은 정상입니다.
+
+---
+
+## 관련 Git 커밋
+
+| 커밋 | 설명 |
+|------|------|
+| `aaa0fe6` | 커스텀 디자인 UI 추가 |
+| `a238147` | SimulStreaming 코드 롤백 |
+| `4967c79` | LocalAgreement 백엔드 버전 추가 |
+
+---
+
+## 원본 프로젝트
+
+- WhisperLiveKit: https://github.com/QuentinFuxa/WhisperLiveKit
