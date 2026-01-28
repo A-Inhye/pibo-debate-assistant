@@ -267,15 +267,9 @@ class AlignAtt:
     def refresh_segment(self, complete=False):
         logger.debug("Refreshing segment:")
         self.init_tokens()
-        self.state.last_attend_frame = -self.cfg.rewind_threshold
+        self.state.last_attend_frame = -self.cfg.rewind_threshold       
         self.state.cumulative_time_offset = 0.0
         self.init_context()
-
-        # KV Cache 완전 리셋 (새 dict 생성 후 참조 재연결)
-        self.state.kv_cache = {}
-        if hasattr(self.state, 'inference') and self.state.inference is not None:
-            self.state.inference.kv_cache = self.state.kv_cache  # 같은 객체 참조 유지
-
         logger.debug(f"Context: {self.state.context}")
         if not complete and len(self.state.segments) > 2:
             self.state.segments = self.state.segments[-2:]

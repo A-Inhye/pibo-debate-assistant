@@ -129,11 +129,10 @@ class DecoderState:
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
-        # Beam search 전용: 참조 재연결 (새 dict 생성 금지!)
+        # Beam search 전용: inference 캐시 초기화
         if self.decoder_type == "beam" and self.inference is not None:
-            # 항상 같은 dict 참조 유지 (조건 없이)
-            self.inference.kv_cache = self.kv_cache
-
+            # 새 딕셔너리 생성 (참조 공유 방지)
+            self.inference.kv_cache = {}
             if self.token_decoder is not None:
                 self.token_decoder.reset()
 

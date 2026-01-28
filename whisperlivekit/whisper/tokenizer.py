@@ -296,21 +296,11 @@ class Tokenizer:
             current_tokens.append(token)
             decoded = self.decode_with_timestamps(current_tokens)
 
-            try:
-                if (
-                    replacement_char not in decoded
-                    or (
-                        unicode_offset + decoded.index(replacement_char) < len(decoded_full)
-                        and decoded_full[unicode_offset + decoded.index(replacement_char)]
-                        == replacement_char
-                    )
-                ):
-                    words.append(decoded)
-                    word_tokens.append(current_tokens)
-                    current_tokens = []
-                    unicode_offset += len(decoded)
-            except (IndexError, ValueError):
-                # 인덱스 오류 시 현재 토큰 그대로 추가하고 계속
+            if (
+                replacement_char not in decoded
+                or decoded_full[unicode_offset + decoded.index(replacement_char)]
+                == replacement_char
+            ):
                 words.append(decoded)
                 word_tokens.append(current_tokens)
                 current_tokens = []
