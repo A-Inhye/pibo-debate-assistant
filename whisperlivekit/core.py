@@ -18,6 +18,11 @@ import sys
 import threading
 from argparse import Namespace
 
+# PyTorch 2.6+ weights_only 문제 해결
+import torch
+import torch.torch_version
+torch.serialization.add_safe_globals([torch.torch_version.TorchVersion])
+
 from whisperlivekit.local_agreement.online_asr import OnlineASRProcessor
 from whisperlivekit.local_agreement.whisper_online import backend_factory
 from whisperlivekit.simul_whisper import SimulStreamingASR
@@ -241,13 +246,14 @@ class TranscriptionEngine:
                         "diart 백엔드로 자동 전환합니다."
                     )
                     diarization_backend = "diart"
+                    self.args.diarization_backend = "diart"  # args도 업데이트
 
             if diarization_backend == "diart":
                 from whisperlivekit.diarization.diart_backend import \
                     DiartDiarization
                 diart_params = {
-                    "segmentation_model": "pyannote/segmentation-3.0",
-                    "embedding_model": "pyannote/embedding",
+                    "segmentation_model_name": "pyannote/segmentation-3.0",
+                    "embedding_model_name": "pyannote/embedding",
                 }
                 diart_params = update_with_kwargs(diart_params, kwargs)
                 self.diarization_model = DiartDiarization(
@@ -266,8 +272,8 @@ class TranscriptionEngine:
                     from whisperlivekit.diarization.diart_backend import \
                         DiartDiarization
                     diart_params = {
-                        "segmentation_model": "pyannote/segmentation-3.0",
-                        "embedding_model": "pyannote/embedding",
+                        "segmentation_model_name": "pyannote/segmentation-3.0",
+                        "embedding_model_name": "pyannote/embedding",
                     }
                     diart_params = update_with_kwargs(diart_params, kwargs)
                     self.diarization_model = DiartDiarization(
