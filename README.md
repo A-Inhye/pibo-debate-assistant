@@ -1,6 +1,57 @@
-# Pibo Debate Assistant - 커스텀 디자인 버전
+# Pibo Debate Assistant - 실시간 토론 지원 시스템
 
-이 문서는 **실시간 토론 지원 시스템**을 위해 WhisperLiveKit을 커스터마이징한 내용을 설명합니다.
+실시간 음성 전사(STT) + 화자 인식 + ChatGPT 요약 기능을 갖춘 토론 지원 시스템입니다.
+
+---
+
+## 🚀 빠른 시작 (팀원용)
+
+### 1. 레포지토리 클론
+```bash
+git clone https://github.com/A-Inhye/pibo-debate-assistant.git
+cd pibo-debate-assistant
+```
+
+### 2. 가상환경 생성 및 활성화
+```bash
+python -m venv venv
+source venv/bin/activate  # Linux/Mac
+# venv\Scripts\activate   # Windows
+```
+
+### 3. 의존성 설치
+```bash
+pip install -e .
+pip install openai
+```
+
+### 4. OpenAI API 키 설정
+```bash
+# .env 파일 생성 (각자 API 키 발급 필요)
+echo 'export OPENAI_API_KEY="sk-your-api-key-here"' > .env
+```
+⚠️ **API 키 발급:** https://platform.openai.com/api-keys
+
+### 5. 서버 실행
+```bash
+source .env && python -m whisperlivekit.basic_server_pibo_design --model medium --language ko --diarization --enable-summary
+```
+
+### 6. 브라우저 접속
+```
+http://localhost:8000
+```
+
+---
+
+## ✨ 주요 기능
+
+| 기능 | 설명 | 옵션 |
+|------|------|------|
+| **실시간 STT** | Whisper 모델로 음성→텍스트 | `--model medium` |
+| **화자 인식** | Sortformer로 화자 구분 (최대 4명) | `--diarization` |
+| **ChatGPT 요약** | 녹음 종료 시 대화 요약 생성 | `--enable-summary` |
+| **한국어 지원** | 한국어 음성 인식 | `--language ko` |
 
 ---
 
@@ -13,21 +64,26 @@
 | 파일 경로 | 설명 |
 |-----------|------|
 | `whisperlivekit/basic_server_pibo_design.py` | 커스텀 서버 (LocalAgreement 강제 적용) |
+| `whisperlivekit/summary/__init__.py` | 요약 모듈 초기화 |
+| `whisperlivekit/summary/summarizer.py` | ChatGPT API 연동 요약 기능 |
 | `whisperlivekit/web_pibo_design/live_transcription.html` | 커스텀 UI - HTML |
 | `whisperlivekit/web_pibo_design/live_transcription.css` | 커스텀 UI - CSS (동적 클래스 포함) |
-| `whisperlivekit/web_pibo_design/live_transcription.js` | JavaScript (원본 web/에서 복사) |
+| `whisperlivekit/web_pibo_design/live_transcription.js` | JavaScript (요약 패널 포함) |
 | `whisperlivekit/web_pibo_design/web_interface.py` | 인라인 HTML 생성 유틸리티 |
 | `whisperlivekit/web_pibo_design/__init__.py` | 패키지 초기화 |
 | `whisperlivekit/web_pibo_design/pcm_worklet.js` | AudioWorklet (원본에서 복사) |
 | `whisperlivekit/web_pibo_design/recorder_worker.js` | Web Worker (원본에서 복사) |
 | `whisperlivekit/web_pibo_design/src/*.svg` | 아이콘 파일들 (원본에서 복사) |
-| `README_PIBO_DESIGN.md` | 이 문서 |
 
 ### 수정한 파일 (Modified)
 
 | 파일 경로 | 수정 내용 |
 |-----------|-----------|
-| `pyproject.toml` | `whisperlivekit.web_pibo_design` 패키지 등록 |
+| `pyproject.toml` | `whisperlivekit.web_pibo_design`, `whisperlivekit.summary` 패키지 등록 |
+| `whisperlivekit/core.py` | `enable_summary`, `summary_model` 파라미터 추가 |
+| `whisperlivekit/parse_args.py` | `--enable-summary`, `--summary-model` 옵션 추가 |
+| `whisperlivekit/audio_processor.py` | 녹음 종료 시 요약 생성 로직 추가 |
+| `whisperlivekit/timed_objects.py` | `FrontData`에 `summary` 필드 추가 |
 
 ### 핵심 변경 사항
 
@@ -56,6 +112,12 @@ WhisperLiveKit은 OpenAI Whisper 모델을 사용한 실시간 음성 전사(STT
 
 ## 실행 방법
 
+### 전체 기능 실행 (STT + 화자인식 + 요약)
+```bash
+source .env && python -m whisperlivekit.basic_server_pibo_design --model medium --language ko --diarization --enable-summary
+```
+
+### 요약 없이 실행 (STT + 화자인식만)
 ```bash
 python -m whisperlivekit.basic_server_pibo_design --model medium --language ko --diarization
 ```
@@ -69,6 +131,8 @@ python -m whisperlivekit.basic_server_pibo_design --model medium --language ko -
 | `--model medium` | Whisper 모델 크기 (tiny, base, small, medium, large-v3) |
 | `--language ko` | 인식할 언어 (ko=한국어, en=영어, auto=자동감지) |
 | `--diarization` | 화자 분리 활성화 (누가 말했는지 구분) |
+| `--enable-summary` | ChatGPT 요약 기능 활성화 (API 키 필요) |
+| `--summary-model gpt-4o` | 요약에 사용할 모델 (기본값: gpt-4o) |
 
 ---
 
@@ -173,18 +237,20 @@ WhisperLiveKit은 두 가지 스트리밍 백엔드를 제공합니다:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  실시간 상호작용형 자율 진화형 토론 중재 에이전트    [●] 00:00  │  ← 다크 헤더
-├─────────────────────────────────────────────────────────────┤
-│  AI Mediator │ 추후 개발 예정                                │  ← AI 배너
+│  실시간 상호작용형 자율 진화형 토론 중재 에이전트        [●]   │  ← 다크 헤더
 ├────────────────────────────┬────────────────────────────────┤
 │                            │                                │
 │   Live Transcript          │   Argument Summary             │
 │                            │                                │
-│   화자 1: 안녕하세요...     │   추후 개발 예정                │
-│   화자 2: 네, 반갑습니다... │                                │
+│   Speaker 1: 안녕하세요... │   Summary                      │
+│   Speaker 2: 반갑습니다... │   전체 대화 요약...             │
+│                            │                                │
+│                            │   Speaker Arguments            │
+│                            │   Speaker 1: 주장 요약...       │
+│                            │   Speaker 2: 주장 요약...       │
 │                            │                                │
 └────────────────────────────┴────────────────────────────────┘
-      ↑ 실시간 전사 영역              ↑ 요약 영역 (미구현)
+      ↑ 실시간 전사 영역              ↑ ChatGPT 요약 영역
 ```
 
 ---
