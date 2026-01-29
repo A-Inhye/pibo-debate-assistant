@@ -230,7 +230,19 @@ class TranscriptionEngine:
                 )
 
         if self.args.diarization:
-            if self.args.diarization_backend == "diart":
+            diarization_backend = self.args.diarization_backend
+
+            # macOS에서는 sortformer 대신 diart 자동 선택 (NeMo 미지원)
+            if diarization_backend == "sortformer":
+                import sys
+                if sys.platform == "darwin":
+                    logger.warning(
+                        "macOS에서는 Sortformer(NeMo)가 지원되지 않습니다. "
+                        "diart 백엔드로 자동 전환합니다."
+                    )
+                    diarization_backend = "diart"
+
+            if diarization_backend == "diart":
                 from whisperlivekit.diarization.diart_backend import \
                     DiartDiarization
                 diart_params = {
@@ -242,10 +254,26 @@ class TranscriptionEngine:
                     block_duration=self.args.min_chunk_size,
                     **diart_params
                 )
-            elif self.args.diarization_backend == "sortformer":
-                from whisperlivekit.diarization.sortformer_backend import \
-                    SortformerDiarization
-                self.diarization_model = SortformerDiarization()
+            elif diarization_backend == "sortformer":
+                try:
+                    from whisperlivekit.diarization.sortformer_backend import \
+                        SortformerDiarization
+                    self.diarization_model = SortformerDiarization()
+                except (ImportError, SystemExit) as e:
+                    logger.warning(
+                        f"Sortformer 로드 실패: {e}. diart 백엔드로 전환합니다."
+                    )
+                    from whisperlivekit.diarization.diart_backend import \
+                        DiartDiarization
+                    diart_params = {
+                        "segmentation_model": "pyannote/segmentation-3.0",
+                        "embedding_model": "pyannote/embedding",
+                    }
+                    diart_params = update_with_kwargs(diart_params, kwargs)
+                    self.diarization_model = DiartDiarization(
+                        block_duration=self.args.min_chunk_size,
+                        **diart_params
+                    )
         
         self.translation_model = None
         if self.args.target_language:

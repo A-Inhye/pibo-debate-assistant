@@ -44,6 +44,16 @@ dependencies = [
 [project.optional-dependencies]
 translation = ["nllw"]
 sentence_tokenizer = ["mosestokenizer", "wtpsplit"]
+# macOS (Apple Silicon) 설치용
+macos = [
+    "mlx-whisper",
+    "diart",
+    "pyannote.audio",
+]
+# Linux GPU 설치용 (CUDA 필요)
+linux-gpu = [
+    # NeMo는 pip으로 직접 설치: pip install "git+https://github.com/NVIDIA/NeMo.git@main#egg=nemo_toolkit[asr]"
+]
 
 [project.urls]
 Homepage = "https://github.com/QuentinFuxa/WhisperLiveKit"

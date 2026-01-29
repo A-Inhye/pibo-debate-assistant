@@ -4,6 +4,16 @@
 
 ---
 
+## 지원 플랫폼
+
+| 플랫폼 | STT | 화자분리 | 요약 | 비고 |
+|--------|-----|----------|------|------|
+| **Linux (CUDA)** | Whisper | Sortformer | ChatGPT | 권장 환경 |
+| **macOS (Apple Silicon)** | MLX-Whisper | diart | ChatGPT | M1/M2/M3/M4 지원 |
+| **macOS (Intel)** | Whisper | diart | ChatGPT | 성능 제한 |
+
+---
+
 ## 🚀 빠른 시작 (팀원용)
 
 ### 1. 레포지토리 클론
@@ -41,6 +51,80 @@ source .env && python -m whisperlivekit.basic_server_pibo_design --model medium 
 ```
 http://localhost:8000
 ```
+
+---
+
+## 🍎 macOS 설치 가이드 (Apple Silicon)
+
+macOS에서는 MLX-Whisper (Apple Silicon 최적화)와 diart (화자분리)를 사용합니다.
+
+### 자동 설치 (권장)
+```bash
+# 설치 스크립트 실행
+./scripts/install_macos.sh
+```
+
+### 수동 설치
+
+#### 1. Homebrew로 Python 3.11+ 설치 (권장)
+```bash
+brew install python@3.11 ffmpeg
+```
+
+#### 2. 가상환경 생성
+```bash
+python3.11 -m venv venv
+source venv/bin/activate
+```
+
+#### 3. 의존성 설치
+```bash
+# 기본 패키지 설치
+pip install -e .
+
+# macOS 전용 패키지 설치
+pip install mlx-whisper diart pyannote.audio openai
+```
+
+#### 4. Hugging Face 토큰 설정 (화자분리용)
+pyannote 모델을 사용하려면 Hugging Face 토큰이 필요합니다:
+1. https://huggingface.co/settings/tokens 에서 토큰 발급
+2. https://huggingface.co/pyannote/segmentation-3.0 에서 모델 사용 동의
+3. https://huggingface.co/pyannote/embedding 에서 모델 사용 동의
+
+```bash
+# 토큰 설정
+huggingface-cli login
+```
+
+#### 5. OpenAI API 키 설정
+```bash
+echo 'export OPENAI_API_KEY="sk-your-api-key-here"' > .env
+```
+
+### macOS 실행 방법
+
+```bash
+# 전체 기능 (STT + 화자분리 + 요약)
+source .env && python -m whisperlivekit.basic_server_pibo_design \
+  --model small \
+  --language ko \
+  --diarization \
+  --backend mlx-whisper \
+  --enable-summary
+
+# 화자분리 없이 (더 빠름)
+source .env && python -m whisperlivekit.basic_server_pibo_design \
+  --model small \
+  --language ko \
+  --backend mlx-whisper \
+  --enable-summary
+```
+
+### macOS 성능 팁
+- **모델 크기**: `small` 또는 `medium` 권장 (large는 느림)
+- **MLX-Whisper**: Apple Silicon에서 ~70ms 추론 시간 (vs 1초+)
+- **화자분리**: diart는 Sortformer보다 가볍지만 정확도는 다소 낮음
 
 ---
 
