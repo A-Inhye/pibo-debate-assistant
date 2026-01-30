@@ -169,27 +169,30 @@ class DiartDiarization:
     def __init__(self, sample_rate: int = 16000, config : SpeakerDiarizationConfig = None, use_microphone: bool = False, block_duration: float = 1.5, segmentation_model_name: str = "pyannote/segmentation-3.0", embedding_model_name: str = "pyannote/embedding"):
         segmentation_model = m.SegmentationModel.from_pretrained(segmentation_model_name)
         embedding_model = m.EmbeddingModel.from_pretrained(embedding_model_name)
-        
+
         if config is None:
             config = SpeakerDiarizationConfig(
                 segmentation=segmentation_model,
                 embedding=embedding_model,
             )
-        
-        self.pipeline = SpeakerDiarization(config=config)        
+
+        self.pipeline = SpeakerDiarization(config=config)
         self.observer = DiarizationObserver()
-        
+
+        # Audio buffer for insert_audio_chunk interface
+        self.buffer_audio = np.array([], dtype=np.float32)
+
         if use_microphone:
             self.source = MicrophoneAudioSource(block_duration=block_duration)
             self.custom_source = None
         else:
             self.custom_source = WebSocketAudioSource(
-                uri="websocket_source", 
+                uri="websocket_source",
                 sample_rate=sample_rate,
                 block_duration=block_duration
             )
             self.source = self.custom_source
-            
+
         self.inference = StreamingInference(
             pipeline=self.pipeline,
             source=self.source,
@@ -202,14 +205,30 @@ class DiartDiarization:
     def insert_silence(self, silence_duration):
         self.observer.global_time_offset += silence_duration
 
-    async def diarize(self, pcm_array: np.ndarray):
+    def insert_audio_chunk(self, pcm_array: np.ndarray):
+        """
+        Add audio chunk to buffer. Compatible with audio_processor interface.
+        """
+        self.buffer_audio = np.concatenate([self.buffer_audio, pcm_array.copy()])
+
+    async def diarize(self, pcm_array: np.ndarray = None):
         """
         Process audio data for diarization.
-        Only used when working with WebSocketAudioSource.
+        If pcm_array is provided, use it directly.
+        Otherwise, process buffered audio from insert_audio_chunk calls.
         """
-        if self.custom_source:
-            self.custom_source.push_audio(pcm_array)            
-        # self.observer.clear_old_segments()        
+        if pcm_array is not None:
+            # Direct call with audio data
+            if self.custom_source:
+                self.custom_source.push_audio(pcm_array)
+        elif len(self.buffer_audio) > 0:
+            # Process buffered audio
+            if self.custom_source:
+                self.custom_source.push_audio(self.buffer_audio)
+            self.buffer_audio = np.array([], dtype=np.float32)
+
+        # Return current diarization segments
+        return self.observer.get_segments()
 
     def close(self):
         """Close the audio source."""
