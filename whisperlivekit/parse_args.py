@@ -62,9 +62,9 @@ def parse_args():
     parser.add_argument(
         "--diarization-backend",
         type=str,
-        default="sortformer",
-        choices=["sortformer", "diart"],
-        help="The diarization backend to use.",
+        default="diart",
+        choices=["diart"],
+        help="The diarization backend to use (diart only).",
     )
 
     parser.add_argument(

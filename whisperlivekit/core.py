@@ -235,51 +235,18 @@ class TranscriptionEngine:
                 )
 
         if self.args.diarization:
-            diarization_backend = self.args.diarization_backend
-
-            # macOS에서는 sortformer 대신 diart 자동 선택 (NeMo 미지원)
-            if diarization_backend == "sortformer":
-                import sys
-                if sys.platform == "darwin":
-                    logger.warning(
-                        "macOS에서는 Sortformer(NeMo)가 지원되지 않습니다. "
-                        "diart 백엔드로 자동 전환합니다."
-                    )
-                    diarization_backend = "diart"
-                    self.args.diarization_backend = "diart"  # args도 업데이트
-
-            if diarization_backend == "diart":
-                from whisperlivekit.diarization.diart_backend import \
-                    DiartDiarization
-                diart_params = {
-                    "segmentation_model_name": "pyannote/segmentation-3.0",
-                    "embedding_model_name": "pyannote/embedding",
-                }
-                diart_params = update_with_kwargs(diart_params, kwargs)
-                self.diarization_model = DiartDiarization(
-                    block_duration=self.args.min_chunk_size,
-                    **diart_params
-                )
-            elif diarization_backend == "sortformer":
-                try:
-                    from whisperlivekit.diarization.sortformer_backend import \
-                        SortformerDiarization
-                    self.diarization_model = SortformerDiarization()
-                except (ImportError, SystemExit) as e:
-                    logger.warning(
-                        f"Sortformer 로드 실패: {e}. diart 백엔드로 전환합니다."
-                    )
-                    from whisperlivekit.diarization.diart_backend import \
-                        DiartDiarization
-                    diart_params = {
-                        "segmentation_model_name": "pyannote/segmentation-3.0",
-                        "embedding_model_name": "pyannote/embedding",
-                    }
-                    diart_params = update_with_kwargs(diart_params, kwargs)
-                    self.diarization_model = DiartDiarization(
-                        block_duration=self.args.min_chunk_size,
-                        **diart_params
-                    )
+            # diart 백엔드만 사용 (Sortformer는 별도 저장소에서 관리)
+            from whisperlivekit.diarization.diart_backend import DiartDiarization
+            diart_params = {
+                "segmentation_model_name": "pyannote/segmentation-3.0",
+                "embedding_model_name": "pyannote/embedding",
+            }
+            diart_params = update_with_kwargs(diart_params, kwargs)
+            self.diarization_model = DiartDiarization(
+                block_duration=self.args.min_chunk_size,
+                **diart_params
+            )
+            self.args.diarization_backend = "diart"  # 명시적으로 설정
         
         self.translation_model = None
         if self.args.target_language:
@@ -306,15 +273,8 @@ def online_factory(args, asr):
   
   
 def online_diarization_factory(args, diarization_backend):
-    if args.diarization_backend == "diart":
-        online = diarization_backend
-        # Not the best here, since several user/instances will share the same backend, but diart is not SOTA anymore and sortformer is recommended
-    
-    if args.diarization_backend == "sortformer":
-        from whisperlivekit.diarization.sortformer_backend import \
-            SortformerDiarizationOnline
-        online = SortformerDiarizationOnline(shared_model=diarization_backend)
-    return online
+    # diart 백엔드만 사용
+    return diarization_backend
 
 
 def online_translation_factory(args, translation_model):

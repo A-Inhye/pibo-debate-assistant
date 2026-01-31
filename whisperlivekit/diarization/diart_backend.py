@@ -46,10 +46,14 @@ class DiarizationObserver(Observer):
             if annotation and len(annotation._labels) > 0:
                 logger.debug("\nSpeaker segments:")
                 for speaker, label in annotation._labels.items():
+                    # speaker 문자열("speaker0")에서 숫자 추출하여 정수로 변환
+                    speaker_id = extract_number(speaker)
+                    if speaker_id is None:
+                        speaker_id = 0  # 기본값
                     for start, end in zip(label.segments_boundaries_[:-1], label.segments_boundaries_[1:]):
                         print(f"  {speaker}: {start:.2f}s-{end:.2f}s")
                         self.diarization_segments.append(SpeakerSegment(
-                            speaker=speaker,
+                            speaker=speaker_id,
                             start=start + self.global_time_offset,
                             end=end + self.global_time_offset
                         ))
@@ -174,6 +178,9 @@ class DiartDiarization:
             config = SpeakerDiarizationConfig(
                 segmentation=segmentation_model,
                 embedding=embedding_model,
+                tau_active=0.55,    # 음성 활동 감지 임계값
+                rho_update=0.5,     # 클러스터 업데이트 임계값 (높여서 화자 합쳐지는 것 방지)
+                delta_new=0.8,      # 새 화자 생성 임계값 (낮춰서 새 화자 더 잘 인식)
             )
 
         self.pipeline = SpeakerDiarization(config=config)
@@ -200,7 +207,10 @@ class DiartDiarization:
             show_progress=False,
         )
         self.inference.attach_observers(self.observer)
-        asyncio.get_event_loop().run_in_executor(None, self.inference)
+
+        # asyncio 이벤트 루프 충돌 방지를 위해 별도 스레드에서 실행
+        self._inference_thread = threading.Thread(target=self.inference, daemon=True)
+        self._inference_thread.start()
 
     def insert_silence(self, silence_duration):
         self.observer.global_time_offset += silence_duration
