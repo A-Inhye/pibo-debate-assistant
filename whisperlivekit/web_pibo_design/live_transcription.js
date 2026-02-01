@@ -427,7 +427,13 @@ function setupWebSocket() {
         remaining_time_diarization = 0,
         status = "active_transcription",
         summary = null,
+        timestamp_summaries = [],
       } = data;
+
+      // 타임스탬프 요약 업데이트 (실시간)
+      if (timestamp_summaries && timestamp_summaries.length > 0) {
+        updateTimestampSummaries(timestamp_summaries);
+      }
 
       // 요약 데이터가 있으면 요약 패널 업데이트
       if (summary) {
@@ -453,15 +459,21 @@ function setupWebSocket() {
  *
  * ChatGPT API에서 받은 요약 결과를 Right Panel에 표시합니다.
  *
- * @param {Object} summary - 요약 결과 객체
- *   - summary: 전체 요약 문자열
- *   - speaker_summaries: {화자번호: 논지} 객체
- *   - token_usage: 토큰 사용량
- *   - error: 에러 메시지 (있을 경우)
+ * @param {Object} summaryData - 요약 결과 객체
+ *   백엔드 구조: { full: {...}, hierarchical: {...} }
+ *   또는 직접: { summary: "...", speaker_summaries: {...}, ... }
  */
-function updateSummaryPanel(summary) {
+function updateSummaryPanel(summaryData) {
   const container = document.getElementById('speakerSummary');
-  if (!container || !summary) return;
+  if (!container || !summaryData) return;
+
+  // 중첩 구조 처리: summary.full 또는 summary.hierarchical 우선 사용
+  let summary = summaryData;
+  if (summaryData.hierarchical) {
+    summary = summaryData.hierarchical;
+  } else if (summaryData.full) {
+    summary = summaryData.full;
+  }
 
   let html = '';
 
@@ -521,6 +533,71 @@ function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
+}
+
+// 타임스탬프 요약 누적 저장
+let accumulatedTimestampSummaries = [];
+
+/**
+ * 타임스탬프 요약 업데이트 (실시간)
+ *
+ * 서버로부터 받은 타임스탬프 기반 요약들을 오른쪽 패널에 표시합니다.
+ * 새로운 요약을 기존 목록에 추가하여 누적 표시합니다.
+ *
+ * @param {Array} timestamp_summaries - 새로 받은 타임스탬프 요약 배열
+ *   예: [{ start: 0.0, end: 60.0, timestamp: "00:00 - 01:00", summary: "..." }, ...]
+ */
+function updateTimestampSummaries(timestamp_summaries) {
+  const container = document.getElementById('timestampSummaries');
+  const countElement = document.getElementById('timestampSummaryCount');
+
+  if (!container) return;
+
+  // 새로운 요약을 누적 목록에 추가
+  if (timestamp_summaries && timestamp_summaries.length > 0) {
+    accumulatedTimestampSummaries.push(...timestamp_summaries);
+  }
+
+  // 요약 개수 업데이트
+  if (countElement) {
+    countElement.textContent = `${accumulatedTimestampSummaries.length}개 요약`;
+  }
+
+  // 요약이 없으면 플레이스홀더 표시
+  if (accumulatedTimestampSummaries.length === 0) {
+    container.innerHTML = `
+      <div class="placeholder-message">
+        <div class="placeholder-icon">⏱️</div>
+        <p>실시간 타임스탬프 요약이 여기에 표시됩니다.</p>
+      </div>
+    `;
+    return;
+  }
+
+  // 타임스탬프 요약 HTML 생성
+  let html = '';
+
+  accumulatedTimestampSummaries.forEach((item, index) => {
+    // 백엔드에서 이미 포맷팅된 timestamp 사용
+    const timeRange = item.timestamp || `${Math.floor(item.start / 60)}:${Math.floor(item.start % 60).toString().padStart(2, '0')} - ${Math.floor(item.end / 60)}:${Math.floor(item.end % 60).toString().padStart(2, '0')}`;
+
+    html += `
+      <div class="timestamp-summary-item">
+        <div class="timestamp-summary-header">
+          <span class="timestamp-badge">${timeRange}</span>
+        </div>
+        <p class="timestamp-summary-text">${escapeHtml(item.summary)}</p>
+      </div>
+    `;
+  });
+
+  container.innerHTML = html;
+
+  // 스크롤을 최신 요약으로 이동
+  const summaryContainer = document.getElementById('timestampSummaryContainer');
+  if (summaryContainer) {
+    summaryContainer.scrollTo({ top: summaryContainer.scrollHeight, behavior: 'smooth' });
+  }
 }
 
 function renderLinesWithBuffer(
@@ -738,6 +815,22 @@ function drawWaveform() {
  */
 async function startRecording() {
   try {
+    // 타임스탬프 요약 초기화 (새 세션 시작)
+    accumulatedTimestampSummaries = [];
+    const timestampContainer = document.getElementById('timestampSummaries');
+    if (timestampContainer) {
+      timestampContainer.innerHTML = `
+        <div class="placeholder-message">
+          <div class="placeholder-icon">⏱️</div>
+          <p>실시간 타임스탬프 요약이 여기에 표시됩니다.</p>
+        </div>
+      `;
+    }
+    const timestampCount = document.getElementById('timestampSummaryCount');
+    if (timestampCount) {
+      timestampCount.textContent = '실시간 요약';
+    }
+
     // 1. Screen Wake Lock 획득 (화면 꺼짐 방지)
     try {
       wakeLock = await navigator.wakeLock.request("screen");

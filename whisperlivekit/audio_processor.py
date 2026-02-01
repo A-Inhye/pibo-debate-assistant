@@ -34,7 +34,8 @@ from whisperlivekit.silero_vad_iterator import FixedVADIterator, OnnxWrapper, lo
 from whisperlivekit.timed_objects import (ASRToken, ChangeSpeaker, FrontData,
                                           Segment, Silence, State, Transcript)
 from whisperlivekit.tokens_alignment import TokensAlignment
-from whisperlivekit.summary import ConversationSummarizer, SummaryResult
+from whisperlivekit.summary import (ConversationSummarizer, SummaryResult,
+                                          TimestampSummarizer, TimestampSegmentSummary)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -232,16 +233,28 @@ class AudioProcessor:
 
         # 요약 프로세서 (ChatGPT API)
         self.summarizer: Optional[ConversationSummarizer] = None
+        self.timestamp_summarizer: Optional[TimestampSummarizer] = None
+        self.summarized_segment_indices: set = set()  # 이미 요약된 세그먼트 인덱스 추적
+
         logger.info(f"enable_summary 설정: {getattr(self.args, 'enable_summary', 'NOT SET')}")
         if getattr(self.args, 'enable_summary', False):
             import os
             logger.info(f"OPENAI_API_KEY 설정 여부: {'SET' if os.getenv('OPENAI_API_KEY') else 'NOT SET'}")
             try:
+                # 전체 요약기 (기존)
                 self.summarizer = ConversationSummarizer(
                     model=getattr(self.args, 'summary_model', 'gpt-4o'),
                     language=self.args.lan if self.args.lan != 'auto' else 'ko'
                 )
                 logger.info("ChatGPT 요약기 초기화 완료")
+
+                # 타임스탬프 요약기 (실시간 세그먼트 요약)
+                self.timestamp_summarizer = TimestampSummarizer(
+                    model=getattr(self.args, 'summary_model', 'gpt-4o'),
+                    language=self.args.lan if self.args.lan != 'auto' else 'ko'
+                )
+                logger.info("타임스탬프 요약기 초기화 완료")
+
             except Exception as e:
                 import traceback
                 logger.warning(f"요약기 초기화 실패: {e}")
@@ -533,6 +546,11 @@ class AudioProcessor:
 
                 buffer_transcription_text = state.buffer_transcription.text if state.buffer_transcription else ''
 
+                # 타임스탬프 요약 처리 (실시간으로 새 세그먼트 요약)
+                timestamp_summaries = []
+                if self.timestamp_summarizer and lines:
+                    timestamp_summaries = await self.process_new_segments_for_timestamp_summary(lines)
+
                 response_status = "active_transcription"
                 if not lines and not buffer_transcription_text and not buffer_diarization_text:
                     response_status = "no_audio_detected"
@@ -544,7 +562,8 @@ class AudioProcessor:
                     buffer_diarization=buffer_diarization_text,
                     buffer_translation=buffer_translation_text,
                     remaining_time_transcription=state.remaining_time_transcription,
-                    remaining_time_diarization=state.remaining_time_diarization if self.args.diarization else 0
+                    remaining_time_diarization=state.remaining_time_diarization if self.args.diarization else 0,
+                    timestamp_summaries=timestamp_summaries  # 실시간 타임스탬프 요약
                 )
 
                 should_push = (response != self.last_response_content)
@@ -556,23 +575,44 @@ class AudioProcessor:
                     logger.info("Results formatter: All upstream processors are done and in stopping state.")
 
                     # 종료 전 요약 생성
+                    final_summary = None
+                    hierarchical_summary = None
+
                     if self.summarizer:
                         logger.info("요약 생성 시작...")
                         summary_result = await self.generate_summary()
                         if summary_result:
-                            # 요약 결과를 포함한 최종 응답 전송
-                            final_response = FrontData(
-                                status="summary",
-                                lines=lines,
-                                buffer_transcription="",
-                                buffer_diarization="",
-                                buffer_translation="",
-                                remaining_time_transcription=0,
-                                remaining_time_diarization=0,
-                                summary=summary_result.to_dict()
-                            )
-                            yield final_response
-                            logger.info("요약 전송 완료")
+                            final_summary = summary_result.to_dict()
+                            logger.info("전체 요약 완료")
+
+                    # 계층적 요약 생성 (타임스탬프 요약 재사용)
+                    if self.timestamp_summarizer:
+                        logger.info("계층적 요약 생성 시작...")
+                        hierarchical_summary = await self.generate_hierarchical_summary()
+                        if hierarchical_summary:
+                            logger.info("계층적 요약 완료")
+
+                    # 요약이 하나라도 있으면 전송
+                    if final_summary or hierarchical_summary:
+                        # 최종 요약 응답 전송
+                        summary_data = {}
+                        if final_summary:
+                            summary_data['full'] = final_summary
+                        if hierarchical_summary:
+                            summary_data['hierarchical'] = hierarchical_summary
+
+                        final_response = FrontData(
+                            status="summary",
+                            lines=lines,
+                            buffer_transcription="",
+                            buffer_diarization="",
+                            buffer_translation="",
+                            remaining_time_transcription=0,
+                            remaining_time_diarization=0,
+                            summary=summary_data
+                        )
+                        yield final_response
+                        logger.info("요약 전송 완료")
 
                     logger.info("Results formatter: Terminating.")
                     return
@@ -719,6 +759,77 @@ class AudioProcessor:
         if result:
             logger.info(f"요약 완료: {result.summary[:50]}...")
         return result
+
+    async def process_new_segments_for_timestamp_summary(self, lines: List[Segment]) -> List[dict]:
+        """
+        새로운 완성된 세그먼트에 대해 타임스탬프 요약 생성 (실시간)
+
+        Args:
+            lines: 현재까지의 모든 세그먼트 (Segment 객체 리스트)
+
+        Returns:
+            List[dict]: 새로 생성된 타임스탬프 요약들
+        """
+        if not self.timestamp_summarizer:
+            return []
+
+        new_summaries = []
+
+        # 새로운 세그먼트만 처리 (이미 요약된 것은 스킵)
+        for idx, line in enumerate(lines):
+            if idx in self.summarized_segment_indices:
+                continue  # 이미 요약됨
+
+            # 유효한 세그먼트인지 확인
+            if not hasattr(line, 'text') or not line.text:
+                continue
+            if getattr(line, 'speaker', -1) == -2:  # 침묵 세그먼트 제외
+                continue
+
+            # 세그먼트 요약 생성
+            segment_data = {
+                "start": getattr(line, 'start', 0.0),
+                "end": getattr(line, 'end', 0.0),
+                "speaker": getattr(line, 'speaker', -1),
+                "text": line.text
+            }
+
+            try:
+                summary = await self.timestamp_summarizer.summarize_segment(segment_data)
+                if summary:
+                    new_summaries.append(summary.to_dict())
+                    self.summarized_segment_indices.add(idx)
+                    logger.info(f"타임스탬프 요약 생성: {summary}")
+            except Exception as e:
+                logger.warning(f"세그먼트 요약 실패 (idx={idx}): {e}")
+
+        return new_summaries
+
+    async def generate_hierarchical_summary(self) -> Optional[dict]:
+        """
+        계층적 요약 생성 (타임스탬프 요약 재사용)
+
+        TimestampSummarizer가 활성화된 경우, 이미 생성된 타임스탬프 요약들을
+        재사용하여 전체 요약을 생성합니다 (토큰 절감).
+
+        Returns:
+            dict: 계층적 요약 결과 또는 None
+        """
+        if not self.timestamp_summarizer:
+            return None
+
+        try:
+            result = await self.timestamp_summarizer.summarize_full()
+            if "error" not in result:
+                logger.info(f"계층적 요약 완료: {result.get('summary', '')[:50]}...")
+                logger.info(f"토큰 사용: {result.get('token_usage')}개, 세그먼트: {result.get('segment_count')}개")
+                return result
+            else:
+                logger.warning(f"계층적 요약 실패: {result['error']}")
+                return None
+        except Exception as e:
+            logger.warning(f"계층적 요약 생성 중 오류: {e}")
+            return None
 
     def _processing_tasks_done(self) -> bool:
         """Return True when all active processing tasks have completed."""

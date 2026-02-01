@@ -814,3 +814,54 @@ body {
     width: 14px;
     height: 14px;
 }
+
+/* ===================================
+   Timestamp Summary Styles
+   =================================== */
+
+/* Timestamp summary container */
+.timestamp-summary-container {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+/* Individual timestamp summary item */
+.timestamp-summary-item {
+    margin-bottom: 16px;
+    padding: 12px;
+    background: var(--bg-gray-50);
+    border-left: 3px solid var(--accent-blue);
+    border-radius: 6px;
+    animation: fadeIn 0.3s ease;
+}
+
+.timestamp-summary-item:last-child {
+    margin-bottom: 0;
+}
+
+/* Timestamp summary header */
+.timestamp-summary-header {
+    margin-bottom: 8px;
+}
+
+/* Timestamp badge (time range) */
+.timestamp-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    background: var(--accent-blue);
+    color: white;
+    border-radius: 12px;
+    font-family: 'Source Code Pro', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+}
+
+/* Timestamp summary text */
+.timestamp-summary-text {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+}

@@ -77,8 +77,23 @@
 
                 <!-- Right Panel: Summary -->
                 <div class="panel">
+                    <!-- 타임스탬프 요약 섹션 (실시간) -->
                     <div class="panel-header">
-                        <div class="panel-title">Argument Summary</div>
+                        <div class="panel-title">Timestamp Summary</div>
+                        <div class="panel-meta" id="timestampSummaryCount">실시간 요약</div>
+                    </div>
+                    <div class="panel-content timestamp-summary-container" id="timestampSummaryContainer">
+                        <div id="timestampSummaries">
+                            <div class="placeholder-message">
+                                <div class="placeholder-icon">⏱️</div>
+                                <p>실시간 타임스탬프 요약이 여기에 표시됩니다.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 전체 요약 섹션 (종료 시) -->
+                    <div class="panel-header" style="margin-top: 20px; border-top: 1px solid #e5e5e5; padding-top: 15px;">
+                        <div class="panel-title">Full Summary</div>
                         <div class="panel-meta">AI 요약 (GPT-4o)</div>
                     </div>
                     <div class="panel-content">

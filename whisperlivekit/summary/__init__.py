@@ -5,5 +5,11 @@ summary 모듈 - ChatGPT API를 사용한 대화 요약
 """
 
 from .summarizer import ConversationSummarizer, SummaryResult
+from .timestamp_summarizer import TimestampSummarizer, TimestampSegmentSummary
 
-__all__ = ['ConversationSummarizer', 'SummaryResult']
+__all__ = [
+    'ConversationSummarizer',
+    'SummaryResult',
+    'TimestampSummarizer',
+    'TimestampSegmentSummary'
+]
