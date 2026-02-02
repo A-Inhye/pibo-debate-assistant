@@ -24,6 +24,7 @@ import traceback
 from time import time
 from typing import Any, AsyncGenerator, List, Optional, Union
 
+import aiohttp
 import numpy as np
 
 from whisperlivekit.core import (TranscriptionEngine,
@@ -943,6 +944,9 @@ class AudioProcessor:
             ai_response_text = response.choices[0].message.content
             logger.info(f"AI 응답 생성 완료: {ai_response_text[:50]}...")
 
+            # 파이보 로봇 TTS로 응답 전송
+            await self._send_to_pibo_tts(ai_response_text)
+
             return {
                 "command": command,
                 "response": ai_response_text,
@@ -992,6 +996,42 @@ class AudioProcessor:
                     return await self.generate_ai_response(command, lines)
 
         return None
+
+    async def _send_to_pibo_tts(self, text: str) -> bool:
+        """
+        파이보 로봇의 TTS 서버로 텍스트를 전송합니다.
+
+        Args:
+            text: TTS로 재생할 텍스트
+
+        Returns:
+            전송 성공 여부
+        """
+        # 파이보 TTS 서버 설정
+        pibo_ip = getattr(self.args, 'pibo_ip', '172.20.10.4')
+        pibo_port = getattr(self.args, 'pibo_tts_port', 8080)
+        pibo_tts_url = f"http://{pibo_ip}:{pibo_port}/speak"
+
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    pibo_tts_url,
+                    json={"text": text},
+                    timeout=aiohttp.ClientTimeout(total=10)
+                ) as response:
+                    if response.status == 200:
+                        result = await response.json()
+                        logger.info(f"파이보 TTS 전송 성공: {result}")
+                        return True
+                    else:
+                        logger.warning(f"파이보 TTS 전송 실패: HTTP {response.status}")
+                        return False
+        except aiohttp.ClientConnectorError:
+            logger.warning(f"파이보 TTS 서버 연결 실패: {pibo_tts_url} (로봇이 연결되어 있지 않을 수 있음)")
+            return False
+        except Exception as e:
+            logger.error(f"파이보 TTS 전송 중 오류: {e}")
+            return False
 
     def _processing_tasks_done(self) -> bool:
         """Return True when all active processing tasks have completed."""
