@@ -260,6 +260,18 @@ class AudioProcessor:
                 logger.warning(f"요약기 초기화 실패: {e}")
                 logger.warning(traceback.format_exc())
 
+        # AI 어시스턴트 (음성 명령 처리)
+        self.ai_assistant_enabled = getattr(self.args, 'enable_summary', False)  # 요약 기능과 함께 활성화
+        # 웨이크워드 목록 (Whisper 인식 변형 포함)
+        self.wake_words = [
+            "파동아", "파동 아", "파돈아", "바동아", "파동이", "파동",
+            "피보야", "피보 야", "피보아", "삐보야", "피보", "피보이",
+            "하영", "하송아", "봉아", "하동이", "하동아",
+        ]
+        self.processed_ai_commands: set = set()  # 이미 처리한 명령어 추적 (중복 방지)
+        if self.ai_assistant_enabled:
+            logger.info(f"AI 어시스턴트 활성화 (웨이크워드: {self.wake_words})")
+
     async def _push_silence_event(self) -> None:
         if self.transcription_queue:
             await self.transcription_queue.put(self.current_silence)
@@ -551,6 +563,11 @@ class AudioProcessor:
                 if self.timestamp_summarizer and lines:
                     timestamp_summaries = await self.process_new_segments_for_timestamp_summary(lines)
 
+                # AI 어시스턴트 명령어 감지 및 처리
+                ai_response = None
+                if self.ai_assistant_enabled and lines:
+                    ai_response = await self.check_and_process_ai_command(lines)
+
                 response_status = "active_transcription"
                 if not lines and not buffer_transcription_text and not buffer_diarization_text:
                     response_status = "no_audio_detected"
@@ -563,7 +580,8 @@ class AudioProcessor:
                     buffer_translation=buffer_translation_text,
                     remaining_time_transcription=state.remaining_time_transcription,
                     remaining_time_diarization=state.remaining_time_diarization if self.args.diarization else 0,
-                    timestamp_summaries=timestamp_summaries  # 실시간 타임스탬프 요약
+                    timestamp_summaries=timestamp_summaries,  # 실시간 타임스탬프 요약
+                    ai_response=ai_response  # AI 어시스턴트 응답
                 )
 
                 should_push = (response != self.last_response_content)
@@ -830,6 +848,150 @@ class AudioProcessor:
         except Exception as e:
             logger.warning(f"계층적 요약 생성 중 오류: {e}")
             return None
+
+    def detect_wake_word(self, text: str) -> Optional[str]:
+        """
+        텍스트에서 웨이크워드를 감지합니다.
+
+        Args:
+            text: 검사할 텍스트
+
+        Returns:
+            감지된 웨이크워드 또는 None
+        """
+        if not self.ai_assistant_enabled:
+            return None
+
+        text_lower = text.lower()
+        for wake_word in self.wake_words:
+            if wake_word in text_lower:
+                return wake_word
+        return None
+
+    def extract_command(self, text: str, wake_word: str) -> str:
+        """
+        웨이크워드 이후의 명령어를 추출합니다.
+
+        Args:
+            text: 전체 텍스트
+            wake_word: 감지된 웨이크워드
+
+        Returns:
+            웨이크워드 이후의 명령어 텍스트
+        """
+        # 웨이크워드 이후 텍스트 추출
+        parts = text.lower().split(wake_word)
+        if len(parts) > 1:
+            return parts[-1].strip()
+        return ""
+
+    async def generate_ai_response(self, command: str, lines: List[Segment]) -> Optional[dict]:
+        """
+        AI 어시스턴트 응답을 생성합니다.
+
+        Args:
+            command: 사용자 명령어 (웨이크워드 이후 텍스트)
+            lines: 현재까지의 대화 세그먼트 목록
+
+        Returns:
+            AI 응답 딕셔너리 또는 None
+        """
+        if not self.summarizer:
+            logger.warning("AI 응답 생성 실패: summarizer가 초기화되지 않음")
+            return None
+
+        try:
+            import openai
+            import os
+
+            # 대화 컨텍스트 구성
+            conversation_context = []
+            for line in lines:
+                if line.text and line.speaker != -2:  # 침묵 제외
+                    speaker_label = f"화자 {line.speaker}" if line.speaker != -1 else "화자"
+                    conversation_context.append(f"[{speaker_label}] {line.text}")
+
+            context_text = "\n".join(conversation_context[-20:])  # 최근 20개 세그먼트만
+
+            # GPT에게 요청
+            client = openai.AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+            system_prompt = """당신은 토론 보조 AI '파동이'입니다.
+현재 진행 중인 토론 내용을 듣고 있으며, 사용자의 요청에 따라 도움을 줍니다.
+- 요약 요청: 현재까지의 토론 내용을 간결하게 요약
+- 분석 요청: 각 화자의 입장과 논점을 분석
+- 기타 질문: 토론 내용을 바탕으로 답변
+답변은 간결하고 명확하게 해주세요 (3-5문장)."""
+
+            user_prompt = f"""현재까지의 토론 내용:
+{context_text}
+
+사용자 요청: {command}
+
+위 토론 내용을 바탕으로 사용자의 요청에 답변해주세요."""
+
+            response = await client.chat.completions.create(
+                model=getattr(self.args, 'summary_model', 'gpt-4o'),
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                max_tokens=500,
+                temperature=0.7
+            )
+
+            ai_response_text = response.choices[0].message.content
+            logger.info(f"AI 응답 생성 완료: {ai_response_text[:50]}...")
+
+            return {
+                "command": command,
+                "response": ai_response_text,
+                "timestamp": time()
+            }
+
+        except Exception as e:
+            logger.error(f"AI 응답 생성 중 오류: {e}")
+            return None
+
+    async def check_and_process_ai_command(self, lines: List[Segment]) -> Optional[dict]:
+        """
+        세그먼트에서 AI 명령어를 감지하고 처리합니다.
+
+        Args:
+            lines: 현재까지의 모든 세그먼트
+
+        Returns:
+            AI 응답 딕셔너리 또는 None
+        """
+        if not self.ai_assistant_enabled or not lines:
+            return None
+
+        # 최근 세그먼트에서 웨이크워드 감지 (마지막 3개만 검사)
+        for line in lines[-3:]:
+            if not line.text:
+                continue
+
+            # 이미 처리한 세그먼트인지 확인 (시작 시간으로 식별)
+            segment_id = f"{line.start}_{line.text[:20]}"
+            if segment_id in self.processed_ai_commands:
+                continue
+
+            wake_word = self.detect_wake_word(line.text)
+            if wake_word:
+                logger.info(f"웨이크워드 감지: '{wake_word}' in '{line.text}'")
+
+                # 명령어 추출
+                command = self.extract_command(line.text, wake_word)
+                if command:
+                    logger.info(f"AI 명령어: {command}")
+
+                    # 중복 처리 방지
+                    self.processed_ai_commands.add(segment_id)
+
+                    # AI 응답 생성
+                    return await self.generate_ai_response(command, lines)
+
+        return None
 
     def _processing_tasks_done(self) -> bool:
         """Return True when all active processing tasks have completed."""

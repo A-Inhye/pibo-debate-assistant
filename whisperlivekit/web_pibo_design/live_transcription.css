@@ -865,3 +865,63 @@ body {
     line-height: 1.6;
     color: var(--text-secondary);
 }
+
+/* ============================
+   AI Assistant Response Styles
+   ============================ */
+
+.ai-response-container {
+    margin-bottom: 16px;
+    display: none;
+}
+
+.ai-response-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 12px;
+    padding: 16px;
+    color: white;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.ai-response-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.ai-icon {
+    font-size: 20px;
+}
+
+.ai-name {
+    font-weight: 700;
+    font-size: 14px;
+}
+
+.ai-command {
+    font-size: 12px;
+    opacity: 0.8;
+    font-style: italic;
+    margin-left: auto;
+}
+
+.ai-response-content {
+    font-size: 14px;
+    line-height: 1.7;
+    white-space: pre-wrap;
+}

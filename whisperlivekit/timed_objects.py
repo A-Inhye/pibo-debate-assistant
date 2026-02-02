@@ -187,6 +187,7 @@ class FrontData():
     remaining_time_diarization: float = 0.
     summary: Optional[Dict[str, Any]] = None  # ChatGPT 요약 결과
     timestamp_summaries: list[Dict[str, Any]] = field(default_factory=list)  # 타임스탬프 요약 (실시간)
+    ai_response: Optional[Dict[str, Any]] = None  # AI 어시스턴트 응답 (파동아 명령)
 
     def to_dict(self) -> Dict[str, Any]:
         """Serialize the front-end data payload."""
@@ -205,6 +206,8 @@ class FrontData():
             _dict['summary'] = self.summary
         if self.timestamp_summaries:
             _dict['timestamp_summaries'] = self.timestamp_summaries
+        if self.ai_response:
+            _dict['ai_response'] = self.ai_response
         return _dict
 
 @dataclass  

@@ -428,11 +428,18 @@ function setupWebSocket() {
         status = "active_transcription",
         summary = null,
         timestamp_summaries = [],
+        ai_response = null,
       } = data;
 
       // 타임스탬프 요약 업데이트 (실시간)
       if (timestamp_summaries && timestamp_summaries.length > 0) {
         updateTimestampSummaries(timestamp_summaries);
+      }
+
+      // AI 어시스턴트 응답 표시
+      if (ai_response) {
+        console.log("🤖 AI 응답:", ai_response.command, "→", ai_response.response);
+        displayAIResponse(ai_response);
       }
 
       // 요약 데이터가 있으면 요약 패널 업데이트
@@ -598,6 +605,58 @@ function updateTimestampSummaries(timestamp_summaries) {
   if (summaryContainer) {
     summaryContainer.scrollTo({ top: summaryContainer.scrollHeight, behavior: 'smooth' });
   }
+}
+
+/**
+ * AI 어시스턴트 응답 표시
+ *
+ * 파동아 등 웨이크워드로 호출된 AI 응답을 화면에 표시합니다.
+ *
+ * @param {Object} aiResponse - AI 응답 객체
+ *   예: { command: "요약해줘", response: "현재까지의 토론은...", timestamp: 1234567890 }
+ */
+function displayAIResponse(aiResponse) {
+  if (!aiResponse || !aiResponse.response) return;
+
+  console.log("AI 응답 수신:", aiResponse);
+
+  // AI 응답 표시할 컨테이너 (타임스탬프 요약 위에 표시)
+  let aiContainer = document.getElementById('aiResponseContainer');
+
+  if (!aiContainer) {
+    // 컨테이너가 없으면 생성
+    const timestampContainer = document.getElementById('timestampSummaryContainer');
+    if (timestampContainer) {
+      aiContainer = document.createElement('div');
+      aiContainer.id = 'aiResponseContainer';
+      aiContainer.className = 'ai-response-container';
+      timestampContainer.parentNode.insertBefore(aiContainer, timestampContainer);
+    } else {
+      return;
+    }
+  }
+
+  // AI 응답 HTML 생성
+  const html = `
+    <div class="ai-response-card">
+      <div class="ai-response-header">
+        <span class="ai-icon">🤖</span>
+        <span class="ai-name">파동이</span>
+        <span class="ai-command">"${escapeHtml(aiResponse.command)}"</span>
+      </div>
+      <div class="ai-response-content">
+        ${escapeHtml(aiResponse.response)}
+      </div>
+    </div>
+  `;
+
+  aiContainer.innerHTML = html;
+  aiContainer.style.display = 'block';
+
+  // 5초 후 자동 숨김 (선택사항)
+  // setTimeout(() => {
+  //   aiContainer.style.display = 'none';
+  // }, 10000);
 }
 
 function renderLinesWithBuffer(
