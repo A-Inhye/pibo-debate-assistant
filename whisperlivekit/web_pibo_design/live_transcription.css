@@ -908,6 +908,13 @@ body {
     font-size: 20px;
 }
 
+.ai-icon-img {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
 .ai-name {
     font-weight: 700;
     font-size: 14px;

@@ -640,7 +640,7 @@ function displayAIResponse(aiResponse) {
   const html = `
     <div class="ai-response-card">
       <div class="ai-response-header">
-        <span class="ai-icon">🤖</span>
+        <img src="padong.png" alt="파동이" class="ai-icon-img">
         <span class="ai-name">파동이</span>
         <span class="ai-command">"${escapeHtml(aiResponse.command)}"</span>
       </div>
@@ -1154,9 +1154,8 @@ function updateUI() {
   recordButton.disabled = waitingForStop;
 
   if (waitingForStop) {
-    if (statusText.textContent !== "Recording stopped. Processing final audio...") {
-      statusText.textContent = "Please wait for processing to complete...";
-    }
+    // 처리 대기 중 메시지 숨김
+    statusText.textContent = "";
   } else if (isRecording) {
     statusText.textContent = "";
   } else {

@@ -178,9 +178,10 @@ class DiartDiarization:
             config = SpeakerDiarizationConfig(
                 segmentation=segmentation_model,
                 embedding=embedding_model,
-                tau_active=0.55,    # 음성 활동 감지 임계값
-                rho_update=0.5,     # 클러스터 업데이트 임계값 (높여서 화자 합쳐지는 것 방지)
-                delta_new=0.8,      # 새 화자 생성 임계값 (낮춰서 새 화자 더 잘 인식)
+                tau_active=0.6,     # 음성 활동 감지 임계값 (기본값)
+                rho_update=0.3,     # 클러스터 업데이트 임계값 (기본값)
+                delta_new=0.5,      # 새 화자 생성 임계값 (낮춰서 새 화자 더 잘 인식)
+                max_speakers=10,    # 최대 화자 수
             )
 
         self.pipeline = SpeakerDiarization(config=config)
