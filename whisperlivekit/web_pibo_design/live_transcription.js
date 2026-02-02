@@ -640,7 +640,7 @@ function displayAIResponse(aiResponse) {
   const html = `
     <div class="ai-response-card">
       <div class="ai-response-header">
-        <img src="padong.png" alt="파동이" class="ai-icon-img">
+        <img src="/web/padong.png" alt="파동이" class="ai-icon-img">
         <span class="ai-name">파동이</span>
         <span class="ai-command">"${escapeHtml(aiResponse.command)}"</span>
       </div>
