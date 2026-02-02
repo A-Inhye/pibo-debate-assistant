@@ -61,7 +61,19 @@ def get_inline_ui_html():
             'recorderWorker = new Worker(workerUrl);'
         )
 
-        # 4. HTML 조립: 외부 참조를 인라인 코드로 대체
+        # 4. 이미지를 base64로 인라인 처리
+        try:
+            with resources.files('whisperlivekit.web_pibo_design').joinpath('padong.png').open('rb') as f:
+                padong_data = base64.b64encode(f.read()).decode('utf-8')
+                padong_data_uri = f'data:image/png;base64,{padong_data}'
+                js_content = js_content.replace(
+                    '/web/padong.png',
+                    padong_data_uri
+                )
+        except Exception as e:
+            logger.warning(f"Could not inline padong.png: {e}")
+
+        # 5. HTML 조립: 외부 참조를 인라인 코드로 대체
         # CSS 외부 링크 → 인라인 <style>
         html_content = html_content.replace(
             '<link rel="stylesheet" href="live_transcription.css" />',
