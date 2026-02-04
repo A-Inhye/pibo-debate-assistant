@@ -315,12 +315,16 @@ body {
     display: grid;
     grid-template-columns: 1fr 1fr;
     flex: 1;
+    height: calc(100vh - 60px); /* 헤더 높이를 뺀 나머지 */
+    overflow: hidden;
 }
 
 .panel {
     min-height: 0;
     display: flex;
     flex-direction: column;
+    height: 100%;
+    overflow: hidden;
 }
 
 .panel:first-child {
@@ -334,6 +338,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    flex-shrink: 0; /* 헤더 크기 고정 */
 }
 
 .panel-title {
@@ -355,6 +360,12 @@ body {
     padding: 16px 24px;
     overflow-y: auto;
     min-height: 0;
+}
+
+/* Transcript container - 독립 스크롤 */
+.transcript-container {
+    max-height: calc(100vh - 140px);
+    overflow-y: auto;
 }
 
 /* Transcript Messages */
