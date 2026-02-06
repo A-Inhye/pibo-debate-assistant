@@ -957,6 +957,30 @@ class AudioProcessor:
             logger.error(f"AI 응답 생성 중 오류: {e}")
             return None
 
+    def detect_direct_command(self, text: str) -> Optional[str]:
+        """
+        웨이크워드 없이 직접 명령어를 감지합니다.
+
+        Args:
+            text: 검사할 텍스트
+
+        Returns:
+            감지된 명령어 또는 None
+        """
+        # 직접 명령어 키워드 (웨이크워드 없이도 작동)
+        direct_commands = [
+            "요약해줘", "요약해 줘", "요약 해줘", "요약 해 줘",
+            "정리해줘", "정리해 줘", "정리 해줘", "정리 해 줘",
+            "요약해", "정리해", "요약하세요", "정리하세요",
+            "내용 요약", "내용 정리", "지금까지 요약", "지금까지 정리",
+        ]
+
+        text_lower = text.lower()
+        for cmd in direct_commands:
+            if cmd in text_lower:
+                return text  # 전체 텍스트를 명령어로 반환
+        return None
+
     async def check_and_process_ai_command(self, lines: List[Segment]) -> Optional[dict]:
         """
         세그먼트에서 AI 명령어를 감지하고 처리합니다.
@@ -970,7 +994,7 @@ class AudioProcessor:
         if not self.ai_assistant_enabled or not lines:
             return None
 
-        # 최근 세그먼트에서 웨이크워드 감지 (마지막 3개만 검사)
+        # 최근 세그먼트에서 웨이크워드 또는 직접 명령어 감지 (마지막 3개만 검사)
         for line in lines[-3:]:
             if not line.text:
                 continue
@@ -980,6 +1004,7 @@ class AudioProcessor:
             if segment_id in self.processed_ai_commands:
                 continue
 
+            # 1. 웨이크워드 감지 (파동이, 파동아 등)
             wake_word = self.detect_wake_word(line.text)
             if wake_word:
                 logger.info(f"웨이크워드 감지: '{wake_word}' in '{line.text}'")
@@ -994,6 +1019,17 @@ class AudioProcessor:
 
                     # AI 응답 생성
                     return await self.generate_ai_response(command, lines)
+
+            # 2. 직접 명령어 감지 (요약해줘, 정리해줘 등)
+            direct_command = self.detect_direct_command(line.text)
+            if direct_command:
+                logger.info(f"직접 명령어 감지: '{direct_command}'")
+
+                # 중복 처리 방지
+                self.processed_ai_commands.add(segment_id)
+
+                # AI 응답 생성
+                return await self.generate_ai_response(direct_command, lines)
 
         return None
 

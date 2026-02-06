@@ -21,12 +21,17 @@ app = FastAPI(title="Pibo TTS Server")
 TEMP_DIR = os.path.join(os.path.dirname(__file__), "_tmp_audio")
 os.makedirs(TEMP_DIR, exist_ok=True)
 
+# ===== 동시 재생 방지를 위한 전역 상태 =====
+current_tts_lock = threading.Lock()
+stop_current_tts = threading.Event()
+is_playing = threading.Event()
+
 
 class SpeakRequest(BaseModel):
     text: str
 
 
-def fetch_streaming(text: str, audio_queue: queue.Queue):
+def fetch_streaming(text: str, audio_queue: queue.Queue, stop_event: threading.Event):
     """노트북 TTS API에서 스트리밍으로 음성 받기"""
     api_url = f"http://{LAPTOP_IP}:{LAPTOP_PORT}/tts-stream"
     print(f"[TTS] 노트북 API 호출: {api_url}")
@@ -49,6 +54,12 @@ def fetch_streaming(text: str, audio_queue: queue.Queue):
         buffer = b''
 
         for chunk in response.iter_content(chunk_size=8192):
+            # 중단 요청 확인
+            if stop_event.is_set():
+                print("[TTS] 수신 중단됨")
+                audio_queue.put(None)
+                return
+
             if not chunk:
                 continue
 
@@ -80,12 +91,30 @@ def fetch_streaming(text: str, audio_queue: queue.Queue):
         audio_queue.put(None)
 
 
-def play_audio(audio_queue: queue.Queue):
+def play_audio(audio_queue: queue.Queue, stop_event: threading.Event):
     """큐에서 오디오 파일을 받아 순서대로 재생"""
     print("[TTS] 재생 시작")
 
     while True:
-        item = audio_queue.get()
+        # 중단 요청 확인
+        if stop_event.is_set():
+            print("[TTS] 재생 중단됨")
+            # 큐 비우기
+            while not audio_queue.empty():
+                try:
+                    item = audio_queue.get_nowait()
+                    if item and len(item) == 2:
+                        _, audio_file = item
+                        if os.path.exists(audio_file):
+                            os.remove(audio_file)
+                except:
+                    break
+            break
+
+        try:
+            item = audio_queue.get(timeout=0.5)
+        except queue.Empty:
+            continue
 
         if item is None:
             print("[TTS] 재생 완료")
@@ -105,54 +134,82 @@ def play_audio(audio_queue: queue.Queue):
         if os.path.exists(audio_file):
             os.remove(audio_file)
 
+    is_playing.clear()
 
-def speak_text(text: str):
-    """텍스트를 TTS로 변환하여 재생 (비동기)"""
+
+def speak_text(text: str, stop_event: threading.Event):
+    """텍스트를 TTS로 변환하여 재생"""
+    is_playing.set()
     audio_queue = queue.Queue(maxsize=3)
 
     fetch_thread = threading.Thread(
         target=fetch_streaming,
-        args=(text, audio_queue),
+        args=(text, audio_queue, stop_event),
         daemon=True
     )
 
     play_thread = threading.Thread(
         target=play_audio,
-        args=(audio_queue,),
+        args=(audio_queue, stop_event),
         daemon=True
     )
 
     fetch_thread.start()
     play_thread.start()
 
-    # 백그라운드에서 실행 (API 응답은 즉시 반환)
-    # 필요시 join()으로 대기 가능
+    # 완료될 때까지 대기
+    fetch_thread.join()
+    play_thread.join()
 
 
 @app.post("/speak")
 async def speak(request: SpeakRequest):
     """
     AI 응답 텍스트를 받아 TTS로 재생
+    이전 TTS가 재생 중이면 중단하고 새로운 TTS 시작
     """
+    global stop_current_tts
+
     text = request.text.strip()
     if not text:
         return {"status": "error", "message": "텍스트가 비어있습니다"}
 
-    # 백그라운드에서 TTS 실행
-    thread = threading.Thread(
-        target=speak_text,
-        args=(text,),
-        daemon=True
-    )
-    thread.start()
+    with current_tts_lock:
+        # 이전 TTS 중단 요청
+        if is_playing.is_set():
+            print("[TTS] 이전 TTS 중단 요청")
+            stop_current_tts.set()
+            # 잠시 대기
+            import time
+            time.sleep(0.3)
+
+        # 새로운 중단 이벤트 생성
+        stop_current_tts = threading.Event()
+
+        # 새 TTS 시작 (백그라운드)
+        thread = threading.Thread(
+            target=speak_text,
+            args=(text, stop_current_tts),
+            daemon=True
+        )
+        thread.start()
 
     return {"status": "ok", "message": "TTS 재생 시작"}
+
+
+@app.post("/stop")
+async def stop():
+    """현재 재생 중인 TTS 중단"""
+    if is_playing.is_set():
+        stop_current_tts.set()
+        return {"status": "ok", "message": "TTS 중단됨"}
+    return {"status": "ok", "message": "재생 중인 TTS 없음"}
 
 
 @app.get("/health")
 async def health():
     """서버 상태 확인"""
-    return {"status": "ok"}
+    return {"status": "ok", "playing": is_playing.is_set()}
 
 
 if __name__ == "__main__":
